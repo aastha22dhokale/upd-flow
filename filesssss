@@ -1,70 +1,90 @@
-package com.ing.datadist.api.model;
+Subscribe
+OpenApiDocument
+P00007
+OAS 3
+See this API in Legacy API Management
+Organisation Hierarchy API
 
-import lombok.*;
+Share
+View in Console
+Back to API details
+Add Organisation Hierarchy Relationship
+post
+/v1/organisation-hierarchies/relationship
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@Generated
-public class OrganisationUnitOrganisationRelationshipRequest {
-    private String childOrganisationUnitIdentifier;
-    private String parentOrganisationIdentifier;
-    private String parentRoleReasonType;
-    private String dataSource;
-}
+💡 Operation ID: post-v1-organisation-hierarchies-relationships
 
-package com.ing.datadist.api.model;
+🏷️ Relationships
 
-import lombok.*;
-import java.time.LocalDateTime;
+Creates a Organisation Hierarchy Relationship between two Organizations.
+A Minority Shareholder Relationship exists when the parent Organisation does not hold majority control on an child Organisation and therefore owns 50% or less of the voting shares.
+A Legal Immediate Parent Relationship exists when the Parent Organisation has majority control on an Child Organisation and therefore owns more than 50% of the voting shares, or, is able to control management and operations of that Child Organisation and/or financial accounts have been fully consolidated into financial accounts of the Parent Organisation.
+Creates an Organisation Hierarchy Relationship between a parent Organizations and a child Organisation Unit.
+A relationship between an Organisation and an Organisation Unit is used to identify the operating sites of an organisation, and therefore ownership percentage is not applicable. All relationships between Organisations and Organisation Units will have automatically a Legal Immediate Parent role type.
+Creates an Organisation Hierarchy Relationship between a parent Individual and a child Organisation.
+A relationship between an Individual and an Organisation is used to identify the natural persons who ultimately directly or indirectly have interest or control over a legal entity.
+header params
+X-ING-AccessToken string required
+The access token identifying the worker
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@Generated
-public class OrganisationUnitOrganisationRelationshipResponse {
-    private Relationship relationship;
+X-ING-LastUpdateUser string
+Identifies the user, system, or process that last updated the instance of a data object. If not specified, the access token company key is used
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Generated
-    public static class Relationship {
-        private String identifier;
-        private Child child;
-        private Parent parent;
-        private String parentRoleType;
-        private Double ownershipPercentage;
-        private String parentRoleReasonType;
-        private Boolean legacyRelationship;
-        private LocalDateTime effectiveDate;
-        private LocalDateTime endDate;
-        private String dataSource;
-        private String lastUpdateUser;
-        private LocalDateTime lastUpdateDate;
-    }
+Request body
+The Organisation Hierarchy Relationship to add.
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Generated
-    public static class Child {
-        private String identifier;
-        private String type;
-    }
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Generated
-    public static class Parent {
-        private String identifier;
-        private String type;
-    }
-}
+application/json
 
+Schema
+Examples
+▾
+object
+▸
+organisationOrganisationRelationship object
+▸
+organisationIndividualRelationship object
+▾
+organisationUnitOrganisationRelationship object
+childOrganisationUnitIdentifier string required
+Unique identifier of the child Organisation Unit
+
+example: 11ef64ef-054c-4d4e-94f8-5f5f6f917e9b
+parentOrganisationIdentifier string required
+Unique identifier of the parent Organisation
+
+example: 043fa73d-01a1-4d87-bce0-13dff8c01467
+parentRoleReasonType string
+Parent Role Reason Type identifies the reason for establishing an Organisation Hierarchy Relationship between the parties with a specific Parent Role Type
+
+example: CPTL_CTRL
+dataSource string required
+Data Source is the source (system) that provides - and sometimes owns - a set of data, and is responsible for unique identification of such data within this environment. Data Source is universally unique across all countries and can be either an ING system or an external (inter)national organisation. It must be an active value of Global Reference Data Management
+
+example: IRIS
+Responses
+
+200
+
+400
+
+401
+
+403
+
+404
+
+500
+200 OK
+
+
+application/json
+
+Schema
+Examples
+▾
+object
+▸
+relationship object
+Scopes
+involved-parties:organisations:hierarchies:create (Allows a user to create an Organisation Hierarchy Relationship)
