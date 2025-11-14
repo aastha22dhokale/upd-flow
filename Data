@@ -1,46 +1,39 @@
-public void processOrganisationUnit(String orgNumber) {
-
-        // ---------------- STEP 1: Create organisation unit ----------------
-        InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
-        String uuid = response.getInvolvedPartyIdentifier();
-
-        if (uuid == null || uuid.isBlank()) {
-            log.warn("No involvedPartyIdentifier found in response");
-            return;
-        }
-
-        // ---------------- STEP 2: First mandatory sync update ----------------
-        UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
-        updateExternalIdentifier(uuid, updateRequest);
-
-        // ---------------- STEP 3: Parallel Calls (ONLY THIS PART CHANGED) ----------------
-        CompletableFuture<Void> addressFuture = CompletableFuture.runAsync(() -> {
-            try {
-                onePamRepository.createPostalAddress(uuid, orgNumber).get();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        CompletableFuture<Void> secondUpdateFuture = CompletableFuture.runAsync(() -> {
-            try {
-                updateExternalIdentifier(uuid, updateRequest);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        CompletableFuture<Void> hierarchyFuture = CompletableFuture.runAsync(() -> {
-            try {
-                createOrganisationUnitHierarchy(uuid, orgNumber);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        CompletableFuture.allOf(addressFuture, secondUpdateFuture, hierarchyFuture).join();
-
-        log.info("Completed processOrganisationUnit for orgNumber: {}", orgNumber);
-    }
-
-    // ---------
+[INFO] 8 errors
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  19.667 s
+[INFO] Finished at: 2025-11-14T19:32:41+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure: Compilation failure:
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[60,9] cannot find symbol        
+[ERROR]   symbol:   class CompletableFuture
+[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[60,49] cannot find symbol       
+[ERROR]   symbol:   variable CompletableFuture
+[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[62,60] incompatible types: java.lang.String cannot be converted to com.ing.datadist.api.model.CreatePostalAddressRequest
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[68,9] cannot find symbol        
+[ERROR]   symbol:   class CompletableFuture
+[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[68,54] cannot find symbol       
+[ERROR]   symbol:   variable CompletableFuture
+[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[76,9] cannot find symbol        
+[ERROR]   symbol:   class CompletableFuture
+[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[76,51] cannot find symbol       
+[ERROR]   symbol:   variable CompletableFuture
+[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[84,9] cannot find symbol        
+[ERROR]   symbol:   variable CompletableFuture
+[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+PS C:\Users\UU47VT\dd-new\P33558-DataDistributorAPI\DataDistribution> 
