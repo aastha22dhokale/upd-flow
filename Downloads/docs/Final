@@ -1,61 +1,291 @@
-public void processOrganisationUnit(String orgNumber) {
+[ERROR] COMPILATION ERROR :
+[INFO] -------------------------------------------------------------
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[70,29] cannot find symbol       
+  symbol:   method getParentUuidFromCache(java.lang.String)
+  location: class com.ing.datadist.api.service.OrganisationUnitService
+[INFO] 1 error
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  13.908 s
+[INFO] Finished at: 2025-11-14T14:27:58+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[70,29] cannot find symbol       
+[ERROR]   symbol:   method getParentUuidFromCache(java.lang.String)
+[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
+[ERROR]
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+PS C:\Users\UU47VT\dd-new\P33558-DataDistributorAPI\DataDistribution> 
+package com.ing.datadist.api.service;
 
-    // ------------------ STEP 1: Create Organisation Unit (sync) ------------------
-    InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+import com.ing.datadist.api.model.CreateOrganisationUnitRequest;
+import com.ing.datadist.api.model.CreateOrganisationUnitNameRequest;
+import com.ing.datadist.api.model.InvolvedPartiesOrganisationUnitResponse;
+import com.ing.datadist.api.model.UpdateExternalIdentifierOrganisationUnitRequest;
+import com.ing.datadist.api.model.OrganisationUnitOrganisationRelationshipRequest;
+import com.ing.datadist.configreader.CofaceOpsConfigReader;
+import static com.ing.datadist.api.utils.DataDistributionConstants.DATA_SOURCE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.LOGICAL_DATA_DOMAIN;
+import static com.ing.datadist.api.utils.DataDistributionConstants.LANGUAGE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.CHANNEL_OF_ENTRY;
+import static com.ing.datadist.api.utils.DataDistributionConstants.ORGANISATION_UNIT_NAME_TYPE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.STRUCTURE_TYPE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.EXTERNAL_ID_TYPE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.EXTERNAL_ID_STATUS;
+import static com.ing.datadist.api.utils.DataDistributionConstants.PLACE_OF_ISSUE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.ROLE_REASON_TYPE;
 
-    String childUuid = response.getInvolvedPartyIdentifier();
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
-    if (childUuid == null || childUuid.isBlank()) {
-        log.warn("No child UUID (involvedPartyIdentifier) found in response for orgNumber: {}", orgNumber);
-        return;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+
+@Service
+@Slf4j
+public class OrganisationUnitService {
+
+    private final OnePamRepository onePamRepository;
+    private final CofaceOpsConfigReader configReader;
+    private final AddressService addressService;
+    private final Executor executor;
+
+
+    public OrganisationUnitService(OnePamRepository onePamRepository, CofaceOpsConfigReader configReader, AddressService addressService) {
+        this.onePamRepository = onePamRepository;
+        this.configReader = configReader;
+        this.addressService = addressService;
+
+    }
+    public void processOrganisationUnit(String orgNumber) {
+
+        // ------------------ STEP 1: Create Organisation Unit (sync) ------------------
+        InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+
+        String childUuid = response.getInvolvedPartyIdentifier();
+
+        if (childUuid == null || childUuid.isBlank()) {
+            log.warn("No child UUID (involvedPartyIdentifier) found in response for orgNumber: {}", orgNumber);
+            return;
+        }
+
+        // ------------------ STEP 2: First mandatory synchronous call ------------------
+        UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+
+        updateExternalIdentifier(childUuid, updateRequest);  // MUST be sync
+        log.info("✔ First sync updateExternalIdentifier completed for UUID: {}", childUuid);
+
+
+        // ------------------ STEP 3: Prepare parent UUID (Scenario D) ------------------
+        // You already have parentUuid from previous step or earlier processing
+        String parentUuid = getParentUuidFromCache(orgNumber); // <-- your logic
+
+        if (parentUuid == null || parentUuid.isBlank()) {
+            log.warn("Parent UUID not found for orgNumber: {}", orgNumber);
+            return;
+        }
+
+        // Build hierarchy payload NOW (no fetching required)
+        OrganisationUnitOrganisationRelationshipRequest hierarchyPayload =
+                OrganisationUnitOrganisationRelationshipRequest.builder()
+                        .childOrganisationUnitIdentifier(childUuid)
+                        .parentOrganisationIdentifier(parentUuid)
+                        .parentRoleReasonType("LEGAL")   // example
+                        .dataSource("ING")
+                        .build();
+
+
+        // ------------------ STEP 4: Run remaining 3 calls in PARALLEL ------------------
+
+        CompletableFuture<Void> addressFuture =
+                CompletableFuture.runAsync(() ->
+                                addressService.createPostalAddress(childUuid, orgNumber),
+                        executor
+                );
+
+        CompletableFuture<Void> hierarchyFuture =
+                onePamRepository.createOrganisationUnitHierarchy(hierarchyPayload)
+                        .thenAccept(res -> log.info("✔ Hierarchy created: child={} parent={}", childUuid, parentUuid));
+
+        CompletableFuture<Void> updateExtId2Future =
+                CompletableFuture.runAsync(() ->
+                                updateExternalIdentifier(childUuid, updateRequest),
+                        executor
+                );
+
+        // ------------------ STEP 5: Wait for ALL 3 parallel calls ------------------
+        CompletableFuture.allOf(addressFuture, hierarchyFuture, updateExtId2Future).join();
+
+        log.info("✔ All parallel calls completed successfully for child UUID: {}", childUuid);
     }
 
-    // ------------------ STEP 2: First mandatory synchronous call ------------------
-    UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+//    public void processOrganisationUnit(String orgNumber) {
+//        InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+//        String uuid = response.getInvolvedPartyIdentifier();
+//        if (uuid == null || uuid.isBlank()) {
+//            log.warn("No involvedPartyIdentifier found in response");
+//            return;
+//        }
+//
+//        UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+//        updateExternalIdentifier(uuid, updateRequest);
+//        addressService.createPostalAddress(uuid, orgNumber);
+//
+//    }
 
-    updateExternalIdentifier(childUuid, updateRequest);  // MUST be sync
-    log.info("✔ First sync updateExternalIdentifier completed for UUID: {}", childUuid);
+//    public void processOrganisationUnit(String orgNumber) {
+//
+//        // ------------------ STEP 1: Create Organisation Unit (sync) ------------------
+//        InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+//        String uuid = response.getInvolvedPartyIdentifier();
+//        if (uuid == null || uuid.isBlank()) {
+//            log.warn("No involvedPartyIdentifier found in response");
+//            return;
+//        }
+//public void processOrganisationUnit(String orgNumber) {
+//    // ------------------ STEP 1: Create Organisation Unit (SYNC) ------------------
+//    InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+//    String uuid = response.getInvolvedPartyIdentifier();
+//    if (uuid == null || uuid.isBlank()) {
+//        log.warn("No involvedPartyIdentifier found in OrganisationUnit response for orgNumber: {}", orgNumber);
+//        return;
+//    }
+//    // ------------------ STEP 2: FIRST mandatory synchronous call ------------------
+//    UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+//    updateExternalIdentifier(uuid, updateRequest); // MUST RUN FIRST (SYNC)
+//    log.info("✔ Completed mandatory sync updateExternalIdentifier for UUID: {}", uuid);
+//    // ------------------ STEP 3: 3 PARALLEL CALLS ------------------
+//    CompletableFuture<Void> addressFuture =
+//            CompletableFuture.runAsync(() ->
+//                            addressService.createPostalAddress(uuid, orgNumber),
+//                    executor
+//            );
+//    CompletableFuture<Void> hierarchyFuture =
+//            CompletableFuture.runAsync(() -> {
+//                String parentId = getParentId(orgNumber);   // confirm how you fetch parent
+//                createOrganisationUnitHierarchy(uuid, parentId);
+//            }, executor);
+//    CompletableFuture<Void> extId2Future =
+//            CompletableFuture.runAsync(() ->
+//                            onePamRepository.updateExternalIdentifier(uuid, updateRequest),
+//                    executor
+//            );
+//
+//    // ------------------ STEP 4: WAIT FOR ALL PARALLEL CALLS ------------------
+//    CompletableFuture.allOf(addressFuture, hierarchyFuture, extId2Future)
+//            .join();
+//    log.info("✔ All parallel Organisation Unit update calls completed for UUID: {}", uuid);
+//}
 
 
-    // ------------------ STEP 3: Prepare parent UUID (Scenario D) ------------------
-    // You already have parentUuid from previous step or earlier processing
-    String parentUuid = getParentUuidFromCache(orgNumber); // <-- your logic
+    private InvolvedPartiesOrganisationUnitResponse createOrganisationUnit(String orgNumber) {
+        List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
+        Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
 
-    if (parentUuid == null || parentUuid.isBlank()) {
-        log.warn("Parent UUID not found for orgNumber: {}", orgNumber);
-        return;
+        String orgUnitName = config.get("organisationUnitName");
+        String countryOfResidence = config.get("countryOfResidence");
+        String effectiveDate = config.get("dateOfIssue");
+
+        if (orgUnitName == null || orgNumber == null || countryOfResidence == null || effectiveDate == null) {
+            log.warn("Missing config values for organisation unit: {}", orgNumber);
+            throw new RuntimeException("Missing config for organisation unit");
+        }
+
+        CreateOrganisationUnitRequest request = CreateOrganisationUnitRequest.builder()
+                .dataSource(DATA_SOURCE)
+                .logicalDataDomain(LOGICAL_DATA_DOMAIN)
+                .countryOfResidence(countryOfResidence)
+                .preferredLanguage(LANGUAGE)
+                .channelOfEntry(CHANNEL_OF_ENTRY)
+                .organisationUnitStructureType(STRUCTURE_TYPE)
+                .effectiveDate(effectiveDate)
+                .organisationUnitNames(Collections.singletonList(
+                        CreateOrganisationUnitNameRequest.builder()
+                                .organisationUnitNameType(ORGANISATION_UNIT_NAME_TYPE)
+                                .organisationUnitName(orgUnitName)
+                                .build()))
+                .build();
+
+        try {
+            return onePamRepository.createInvolvedParty(request).get();
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Failed to create organisation unit", e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Creation failed", e);
+        }
     }
 
-    // Build hierarchy payload NOW (no fetching required)
-    OrganisationUnitOrganisationRelationshipRequest hierarchyPayload =
-            OrganisationUnitOrganisationRelationshipRequest.builder()
-                    .childOrganisationUnitIdentifier(childUuid)
-                    .parentOrganisationIdentifier(parentUuid)
-                    .parentRoleReasonType("LEGAL")   // example
-                    .dataSource("ING")
-                    .build();
+    private UpdateExternalIdentifierOrganisationUnitRequest buildUpdateRequest(String orgNumber) {
+        List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
+        Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
+
+        String uuid = config.get("uuid");
+        String countryOfIssue = config.get("countryOfResidence");
+        String dateOfIssue = config.get("dateOfIssue");
+        String expiryDate = config.get("expiryDate");
+
+        if (uuid == null || countryOfIssue == null || dateOfIssue == null || expiryDate == null) {
+            log.warn("Missing config values for external identifier update: {}", orgNumber);
+            throw new RuntimeException("Missing config for external identifier update");
+        }
+
+        return UpdateExternalIdentifierOrganisationUnitRequest.builder()
+                .involvedPartyExternalIdentifierType(EXTERNAL_ID_TYPE)
+                .involvedPartyExternalIdentifierValue(uuid)
+                .involvedPartyExternalIdentifierStatusType(EXTERNAL_ID_STATUS)
+                .countryOfIssue(countryOfIssue)
+                .placeOfIssue(PLACE_OF_ISSUE)
+                .dateOfIssue(dateOfIssue)
+                .expiryDate(expiryDate)
+                .dataSource(DATA_SOURCE)
+                .effectiveDate(dateOfIssue)
+                .endDate(ZonedDateTime.now().plusYears(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .build();
+    }
+
+    private void updateExternalIdentifier(String uuid, UpdateExternalIdentifierOrganisationUnitRequest request) {
+        try {
+            onePamRepository.updateExternalIdentifier(uuid, request).get();
+            log.info("Successfully updated external identifier for UUID: {}", uuid);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Failed to update external identifier", e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Update failed", e);
+        }
+    }
+
+    private void createOrganisationUnitHierarchy(String childId, String parentId) {
+        OrganisationUnitOrganisationRelationshipRequest request = OrganisationUnitOrganisationRelationshipRequest.builder()
+                .childOrganisationUnitIdentifier(childId)
+                .parentOrganisationIdentifier(parentId)
+                .parentRoleReasonType(ROLE_REASON_TYPE)
+                .dataSource(DATA_SOURCE)
+                .build();
+
+        try {
+            onePamRepository.createOrganisationUnitHierarchy(request).get();
+            log.info("Successfully created hierarchy between child: {} and parent: {}", childId, parentId);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Failed to create organisation unit hierarchy", e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Hierarchy creation failed", e);
+        }
+    }
 
 
-    // ------------------ STEP 4: Run remaining 3 calls in PARALLEL ------------------
-
-    CompletableFuture<Void> addressFuture =
-            CompletableFuture.runAsync(() ->
-                    addressService.createPostalAddress(childUuid, orgNumber),
-                    executor
-            );
-
-    CompletableFuture<Void> hierarchyFuture =
-            onePamRepository.createOrganisationUnitHierarchy(hierarchyPayload)
-                    .thenAccept(res -> log.info("✔ Hierarchy created: child={} parent={}", childUuid, parentUuid));
-
-    CompletableFuture<Void> updateExtId2Future =
-            CompletableFuture.runAsync(() ->
-                    updateExternalIdentifier(childUuid, updateRequest),
-                    executor
-            );
-
-    // ------------------ STEP 5: Wait for ALL 3 parallel calls ------------------
-    CompletableFuture.allOf(addressFuture, hierarchyFuture, updateExtId2Future).join();
-
-    log.info("✔ All parallel calls completed successfully for child UUID: {}", childUuid);
 }
