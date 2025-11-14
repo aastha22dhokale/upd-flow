@@ -1,50 +1,156 @@
-[INFO] 11 errors
-[INFO] -------------------------------------------------------------
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD FAILURE
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time:  14.687 s
-[INFO] Finished at: 2025-11-14T14:02:33+05:30
-[INFO] ------------------------------------------------------------------------
-[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure: Compilation failure:
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[95,5] cannot find symbol        
-[ERROR]   symbol:   class CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[101,21] cannot find symbol      
-[ERROR]   symbol:   variable executor
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[97,13] cannot find symbol       
-[ERROR]   symbol:   variable CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[105,5] cannot find symbol       
-[ERROR]   symbol:   class CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[113,16] cannot find symbol      
-[ERROR]   symbol:   variable executor
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[107,13] cannot find symbol      
-[ERROR]   symbol:   variable CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[109,35] cannot find symbol      
-[ERROR]   symbol:   method getParentId(java.lang.String)
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[115,5] cannot find symbol       
-[ERROR]   symbol:   class CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[121,21] cannot find symbol      
-[ERROR]   symbol:   variable executor
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[117,13] cannot find symbol      
-[ERROR]   symbol:   variable CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[128,5] cannot find symbol       
-[ERROR]   symbol:   variable CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] -> [Help 1]
-[ERROR]
-[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
-[ERROR] Re-run Maven using the -X switch to enable full debug logging.
-[ERROR]
-[ERROR] For more information about the errors and possible solutions, please read the following articles:
-[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
-PS C:\Users\UU47VT\dd-new\P33558-DataDistributorAPI\DataDistribution> 
+Subscribe
+OpenApiDocument
+P00007
+OAS 3
+See this API in Legacy API Management
+Organisation Hierarchy API
+
+Share
+View in Console
+Back to API details
+Add Organisation Hierarchy Relationship
+post
+/v1/organisation-hierarchies/relationship
+
+💡 Operation ID: post-v1-organisation-hierarchies-relationships
+
+🏷️ Relationships
+
+Creates a Organisation Hierarchy Relationship between two Organizations.
+A Minority Shareholder Relationship exists when the parent Organisation does not hold majority control on an child Organisation and therefore owns 50% or less of the voting shares.
+A Legal Immediate Parent Relationship exists when the Parent Organisation has majority control on an Child Organisation and therefore owns more than 50% of the voting shares, or, is able to control management and operations of that Child Organisation and/or financial accounts have been fully consolidated into financial accounts of the Parent Organisation.
+Creates an Organisation Hierarchy Relationship between a parent Organizations and a child Organisation Unit.
+A relationship between an Organisation and an Organisation Unit is used to identify the operating sites of an organisation, and therefore ownership percentage is not applicable. All relationships between Organisations and Organisation Units will have automatically a Legal Immediate Parent role type.
+Creates an Organisation Hierarchy Relationship between a parent Individual and a child Organisation.
+A relationship between an Individual and an Organisation is used to identify the natural persons who ultimately directly or indirectly have interest or control over a legal entity.
+header params
+X-ING-AccessToken string required
+The access token identifying the worker
+
+X-ING-LastUpdateUser string
+Identifies the user, system, or process that last updated the instance of a data object. If not specified, the access token company key is used
+
+Request body
+The Organisation Hierarchy Relationship to add.
+
+
+application/json
+
+Schema
+Examples
+▾
+object
+▸
+organisationOrganisationRelationship object
+▸
+organisationIndividualRelationship object
+▾
+organisationUnitOrganisationRelationship object
+childOrganisationUnitIdentifier string required
+Unique identifier of the child Organisation Unit
+
+example: 11ef64ef-054c-4d4e-94f8-5f5f6f917e9b
+parentOrganisationIdentifier string required
+Unique identifier of the parent Organisation
+
+example: 043fa73d-01a1-4d87-bce0-13dff8c01467
+parentRoleReasonType string
+Parent Role Reason Type identifies the reason for establishing an Organisation Hierarchy Relationship between the parties with a specific Parent Role Type
+
+example: CPTL_CTRL
+dataSource string required
+Data Source is the source (system) that provides - and sometimes owns - a set of data, and is responsible for unique identification of such data within this environment. Data Source is universally unique across all countries and can be either an ING system or an external (inter)national organisation. It must be an active value of Global Reference Data Management
+
+example: IRIS
+Responses
+
+200
+
+400
+
+401
+
+403
+
+404
+
+500
+200 OK
+
+
+application/json
+
+Schema
+Examples
+▾
+object
+▾
+relationship object
+identifier string (uuid) required
+Unique identifier of the Organisation Hierarchy Relationship
+
+example: 10c46dcf-cee3-4ccd-8e1a-ff581b9b7adc
+▾
+child object required
+Involved Party
+
+identifier string (uuid) required
+Unique identifier of the Involved Party
+
+example: 73858baf-5d5b-47ec-9cc9-3b7e493ff8b2
+type string
+Type of involved party
+
+example: ORG
+▾
+parent object required
+Involved Party
+
+identifier string (uuid) required
+Unique identifier of the Involved Party
+
+example: 73858baf-5d5b-47ec-9cc9-3b7e493ff8b2
+type string
+Type of involved party
+
+example: ORG
+parentRoleType string required
+Identifies the type of the relationship between the two organisations.
+
+example: LGL_IMM_PRN
+ownershipPercentage number (double)
+Identifies the percentage of the voting rights issued, or, the percentage of the capital of the child Organisation that is directly owned by the parent Organisation
+
+example: 51.5
+parentRoleReasonType string
+Parent Role Reason Type identifies the reason for establishing an Organisation Hierarchy Relationship between the parties with a specific Parent Role Type
+
+example: CPTL_CTRL
+legacyRelationship boolean
+The relationship exists in legacy storage
+
+example: false
+effectiveDate string (date-time) required
+Identifies the first day of business validity
+
+example: 2021-04-27T09:11:11.111Z
+endDate string (date-time)
+Identifies the last day of business validity
+
+example: 2021-04-27T09:11:11.111Z
+dataSource string required
+Data Source is the source (system) that provides - and sometimes owns - a set of data, and is responsible for unique identification of such data within this environment. Data Source is universally unique across all countries and can be either an ING system or an external (inter)national organisation. It must be an active value of Global Reference Data Management
+
+example: IRIS
+lastUpdateUser string required
+Last Update User identifies the user; system; or process, who last updated the instance of a data object.
+
+example: ONEPAM
+lastUpdateDate string (date-time) required
+Identifies the date and time on which the instance of a data object has been added or last updated
+
+example: 2021-04-27T09:11:11.111Z
+Scopes
+involved-parties:organisations:hierarchies:create (Allows a user to create an Organisation Hierarchy Relationship)
+
+this is the API in the req body itself the parent identifier is then wht do we do?
