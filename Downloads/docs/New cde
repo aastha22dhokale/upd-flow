@@ -1,156 +1,99 @@
-Subscribe
-OpenApiDocument
-P00007
-OAS 3
-See this API in Legacy API Management
-Organisation Hierarchy API
+    public CompletableFuture<Void> createOrganisationUnitHierarchy(OrganisationUnitOrganisationRelationshipRequest payload) {
+        try {
+            String url = RegkeyEnum.CREATE_ORGANISATION_UNIT_HIERARCHY.endpoint;
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Post())
+                    .withJsonContent(payload)
+                    .withHeader("X-ING-LastUpdateUse", "IN_ADMIN")
+                    .build();
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                            return null;
+                        } else {
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.CREATE_ORGANISATION_UNIT_HIERARCHY,
+                                    "Failed to create organisation unit hierarchy",
+                                    "Status: " + response.statusCode()
+                            );
+                        }
+                    });
+        } catch (RichHttpRequestBuilderException e) {
+            throw new DataDistributionApiException(
+                    RegkeyEnum.CREATE_ORGANISATION_UNIT_HIERARCHY,
+                    "Failed to build request for organisation unit hierarchy API",
+                    e.getMessage()
+            );
+        }
+    }
 
-Share
-View in Console
-Back to API details
-Add Organisation Hierarchy Relationship
-post
-/v1/organisation-hierarchies/relationship
+oarent id will be in the req itself rihgt?? thn y fetch it from somewhere else???
+package com.ing.datadist.api.model;
 
-💡 Operation ID: post-v1-organisation-hierarchies-relationships
+import lombok.*;
 
-🏷️ Relationships
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Generated
+public class OrganisationUnitOrganisationRelationshipRequest {
+    private String childOrganisationUnitIdentifier;
+    private String parentOrganisationIdentifier;
+    private String parentRoleReasonType;
+    private String dataSource;
+}
+package com.ing.datadist.api.model;
 
-Creates a Organisation Hierarchy Relationship between two Organizations.
-A Minority Shareholder Relationship exists when the parent Organisation does not hold majority control on an child Organisation and therefore owns 50% or less of the voting shares.
-A Legal Immediate Parent Relationship exists when the Parent Organisation has majority control on an Child Organisation and therefore owns more than 50% of the voting shares, or, is able to control management and operations of that Child Organisation and/or financial accounts have been fully consolidated into financial accounts of the Parent Organisation.
-Creates an Organisation Hierarchy Relationship between a parent Organizations and a child Organisation Unit.
-A relationship between an Organisation and an Organisation Unit is used to identify the operating sites of an organisation, and therefore ownership percentage is not applicable. All relationships between Organisations and Organisation Units will have automatically a Legal Immediate Parent role type.
-Creates an Organisation Hierarchy Relationship between a parent Individual and a child Organisation.
-A relationship between an Individual and an Organisation is used to identify the natural persons who ultimately directly or indirectly have interest or control over a legal entity.
-header params
-X-ING-AccessToken string required
-The access token identifying the worker
+import lombok.*;
+import java.time.LocalDateTime;
 
-X-ING-LastUpdateUser string
-Identifies the user, system, or process that last updated the instance of a data object. If not specified, the access token company key is used
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Generated
+public class OrganisationUnitOrganisationRelationshipResponse {
+    private Relationship relationship;
 
-Request body
-The Organisation Hierarchy Relationship to add.
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Generated
+    public static class Relationship {
+        private String identifier;
+        private Child child;
+        private Parent parent;
+        private String parentRoleType;
+        private Double ownershipPercentage;
+        private String parentRoleReasonType;
+        private Boolean legacyRelationship;
+        private LocalDateTime effectiveDate;
+        private LocalDateTime endDate;
+        private String dataSource;
+        private String lastUpdateUser;
+        private LocalDateTime lastUpdateDate;
+    }
 
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Generated
+    public static class Child {
+        private String identifier;
+        private String type;
+    }
 
-application/json
-
-Schema
-Examples
-▾
-object
-▸
-organisationOrganisationRelationship object
-▸
-organisationIndividualRelationship object
-▾
-organisationUnitOrganisationRelationship object
-childOrganisationUnitIdentifier string required
-Unique identifier of the child Organisation Unit
-
-example: 11ef64ef-054c-4d4e-94f8-5f5f6f917e9b
-parentOrganisationIdentifier string required
-Unique identifier of the parent Organisation
-
-example: 043fa73d-01a1-4d87-bce0-13dff8c01467
-parentRoleReasonType string
-Parent Role Reason Type identifies the reason for establishing an Organisation Hierarchy Relationship between the parties with a specific Parent Role Type
-
-example: CPTL_CTRL
-dataSource string required
-Data Source is the source (system) that provides - and sometimes owns - a set of data, and is responsible for unique identification of such data within this environment. Data Source is universally unique across all countries and can be either an ING system or an external (inter)national organisation. It must be an active value of Global Reference Data Management
-
-example: IRIS
-Responses
-
-200
-
-400
-
-401
-
-403
-
-404
-
-500
-200 OK
-
-
-application/json
-
-Schema
-Examples
-▾
-object
-▾
-relationship object
-identifier string (uuid) required
-Unique identifier of the Organisation Hierarchy Relationship
-
-example: 10c46dcf-cee3-4ccd-8e1a-ff581b9b7adc
-▾
-child object required
-Involved Party
-
-identifier string (uuid) required
-Unique identifier of the Involved Party
-
-example: 73858baf-5d5b-47ec-9cc9-3b7e493ff8b2
-type string
-Type of involved party
-
-example: ORG
-▾
-parent object required
-Involved Party
-
-identifier string (uuid) required
-Unique identifier of the Involved Party
-
-example: 73858baf-5d5b-47ec-9cc9-3b7e493ff8b2
-type string
-Type of involved party
-
-example: ORG
-parentRoleType string required
-Identifies the type of the relationship between the two organisations.
-
-example: LGL_IMM_PRN
-ownershipPercentage number (double)
-Identifies the percentage of the voting rights issued, or, the percentage of the capital of the child Organisation that is directly owned by the parent Organisation
-
-example: 51.5
-parentRoleReasonType string
-Parent Role Reason Type identifies the reason for establishing an Organisation Hierarchy Relationship between the parties with a specific Parent Role Type
-
-example: CPTL_CTRL
-legacyRelationship boolean
-The relationship exists in legacy storage
-
-example: false
-effectiveDate string (date-time) required
-Identifies the first day of business validity
-
-example: 2021-04-27T09:11:11.111Z
-endDate string (date-time)
-Identifies the last day of business validity
-
-example: 2021-04-27T09:11:11.111Z
-dataSource string required
-Data Source is the source (system) that provides - and sometimes owns - a set of data, and is responsible for unique identification of such data within this environment. Data Source is universally unique across all countries and can be either an ING system or an external (inter)national organisation. It must be an active value of Global Reference Data Management
-
-example: IRIS
-lastUpdateUser string required
-Last Update User identifies the user; system; or process, who last updated the instance of a data object.
-
-example: ONEPAM
-lastUpdateDate string (date-time) required
-Identifies the date and time on which the instance of a data object has been added or last updated
-
-example: 2021-04-27T09:11:11.111Z
-Scopes
-involved-parties:organisations:hierarchies:create (Allows a user to create an Organisation Hierarchy Relationship)
-
-this is the API in the req body itself the parent identifier is then wht do we do?
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Generated
+    public static class Parent {
+        private String identifier;
+        private String type;
+    }
+}
