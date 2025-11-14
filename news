@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @Slf4j
@@ -50,12 +51,66 @@ public class OrganisationUnitService {
         }
 
         UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
-        
-        
-        //start parallel calls for following 3 apis
-        updateExternalIdentifier(uuid, updateRequest);
-        addressService.createPostalAddress(uuid, orgNumber);
-        //call create org unit hierarchy  here
+
+// Start parallel calls for the following 3 APIs
+
+        CompletableFuture<Void> updateFuture = CompletableFuture.runAsync(() ->
+
+                updateExternalIdentifier(uuid, updateRequest));
+
+        CompletableFuture<Void> addressFuture = CompletableFuture.runAsync(() ->
+
+                addressService.createPostalAddress(uuid, orgNumber));
+
+        CompletableFuture<Void> hierarchyFuture = CompletableFuture.runAsync(() -> {
+
+            // Fetch parentId from config (or use default if missing)
+
+            List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
+
+            Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
+
+            String parentId = config.getOrDefault("parentId", "DEFAULT_PARENT");
+
+            createOrganisationUnitHierarchy(uuid, parentId);
+
+        });
+
+        // Wait for all parallel calls to finish
+
+        CompletableFuture.allOf(updateFuture, addressFuture, hierarchyFuture).join();
+
+        log.info("✔ All parallel operations completed for OU uuid={}", uuid);    // Start parallel calls for the following 3 APIs
+
+        CompletableFuture<Void> updateFuture = CompletableFuture.runAsync(() ->
+
+                updateExternalIdentifier(uuid, updateRequest));
+
+        CompletableFuture<Void> addressFuture = CompletableFuture.runAsync(() ->
+
+                addressService.createPostalAddress(uuid, orgNumber));
+
+        CompletableFuture<Void> hierarchyFuture = CompletableFuture.runAsync(() -> {
+
+            // Fetch parentId from config (or use default if missing)
+
+            List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
+
+            Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
+
+            String parentId = config.getOrDefault("parentId", "DEFAULT_PARENT");
+
+            createOrganisationUnitHierarchy(uuid, parentId);
+
+        });
+
+        // Wait for all parallel calls to finish
+
+        CompletableFuture.allOf(updateFuture, addressFuture, hierarchyFuture).join();
+
+        log.info("✔ All parallel operations completed for OU uuid={}", uuid);
+
+     
 
     }
 
@@ -155,3 +210,318 @@ public class OrganisationUnitService {
 
 
 }
+
+package com.ing.datadist.api.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ing.apisdk.toolkit.connectivity.api.JavaService;
+import com.ing.apisdk.toolkit.connectivity.transport.http.japi.RichHttpRequestBuilder;
+import com.ing.apisdk.toolkit.connectivity.transport.http.japi.RichHttpRequestBuilderException;
+import com.ing.datadist.api.config.InvolvedPartyApiProperties;
+import com.ing.datadist.api.exception.DataDistributionApiException;
+import com.ing.datadist.api.model.*;
+import com.ing.datadist.api.utils.RegkeyEnum;
+import com.twitter.finagle.http.Method;
+import com.twitter.finagle.http.Request;
+import com.twitter.finagle.http.Response;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+import scala.collection.JavaConverters;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
+@Slf4j
+@Component
+public class OnePamRepository {
+    private final JavaService<Request, Response> apiClient;
+    private final ObjectMapper objectMapper;
+    private final InvolvedPartyApiProperties apiProperties;
+    public OnePamRepository(@Qualifier("integrationServiceGeneric") JavaService<Request, Response> apiClient,
+                            ObjectMapper objectMapper,
+                            InvolvedPartyApiProperties apiProperties) {
+        this.apiClient = apiClient;
+        this.objectMapper = objectMapper;
+        this.apiProperties = apiProperties;
+    }
+
+    public CompletableFuture<InvolvedPartiesOrganisationUnitResponse> createInvolvedParty(CreateOrganisationUnitRequest payload) {
+        try {
+            String url = RegkeyEnum.CREATE_INVOLVED_PARTY.endpoint;
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Post())
+                    .withJsonContent(payload)
+                    .withHeader("X-ING-LastUpdateUse", "IN_ADMIN")
+                    .build();
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        try {
+                            return objectMapper.readValue(response.contentString(), InvolvedPartiesOrganisationUnitResponse.class);
+                        } catch (Exception e) {
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.CREATE_INVOLVED_PARTY,
+                                    "Failed to parse response from Involved Party API",
+                                    e.getMessage()
+                            );
+                        }
+                    });
+        } catch (RichHttpRequestBuilderException e) {
+            throw new DataDistributionApiException(
+                    RegkeyEnum.CREATE_INVOLVED_PARTY,
+                    "Failed to build request for create involved party API",
+                    e.getMessage()
+            );
+        }
+    }
+
+    public CompletableFuture<Void> updateExternalIdentifier(String uuid, UpdateExternalIdentifierOrganisationUnitRequest payload) {
+        try {
+            String url = RegkeyEnum.UPDATE_EXTERNAL_IDENTIFIER.resolveEndpoint(uuid);
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Post())
+                    .withJsonContent(payload)
+                    .withHeader("X-ING-LastUpdateUse", "IN_ADMIN")
+                    .build();
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                            return null;
+                        } else {
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.UPDATE_EXTERNAL_IDENTIFIER,
+                                    "Failed to update external identifier",
+                                    "Status: " + response.statusCode()
+                            );
+                        }
+                    });
+        } catch (RichHttpRequestBuilderException e) {
+            throw new DataDistributionApiException(
+                    RegkeyEnum.UPDATE_EXTERNAL_IDENTIFIER,
+                    "Failed to build request for update external identifier API",
+                    e.getMessage()
+            );
+        }
+
+    }
+
+    public CompletableFuture<Void> createOrganisationUnitHierarchy(OrganisationUnitOrganisationRelationshipRequest payload) {
+        try {
+            String url = RegkeyEnum.CREATE_ORGANISATION_UNIT_HIERARCHY.endpoint;
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Post())
+                    .withJsonContent(payload)
+                    .withHeader("X-ING-LastUpdateUse", "IN_ADMIN")
+                    .build();
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                            return null;
+                        } else {
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.CREATE_ORGANISATION_UNIT_HIERARCHY,
+                                    "Failed to create organisation unit hierarchy",
+                                    "Status: " + response.statusCode()
+                            );
+                        }
+                    });
+        } catch (RichHttpRequestBuilderException e) {
+            throw new DataDistributionApiException(
+                    RegkeyEnum.CREATE_ORGANISATION_UNIT_HIERARCHY,
+                    "Failed to build request for organisation unit hierarchy API",
+                    e.getMessage()
+            );
+        }
+    }
+
+    public CompletableFuture<SearchInvolvedPartiesResponseV1> searchInvolvedPartyByInternalIdentifier(SearchInvolvedPartiesRequestV1 payload) {
+        try {
+            String url = RegkeyEnum.SEARCH_ORGANISATION_UNIT.endpoint;  // ✅ dynamically from enum
+            log.info("searchInvolvedPartyByInternalIdentifier request payload: {}", payload);
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Post())
+                    .withJsonContent(jsonPayload)
+                    .withHeader("Content-Type", "application/json")
+                    .build();
+            printRequest(request);
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        try {
+                            log.info("searchInvolvedPartyByInternalIdentifier response: {}", response);
+                            return objectMapper.readValue(response.contentString(), SearchInvolvedPartiesResponseV1.class);
+                        } catch (Exception e) {
+                            log.error("searchInvolvedPartyByInternalIdentifier error: {}", e.getMessage());
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.SEARCH_ORGANISATION_UNIT,
+                                    "Failed to parse response from search organisation unit API",
+                                    e.getMessage()
+                            );
+                        }
+                    });
+        } catch (Exception e) {
+            log.error("searchInvolvedPartyByInternalIdentifier API error: {}", e.getMessage());
+            throw new DataDistributionApiException(
+                    RegkeyEnum.SEARCH_ORGANISATION_UNIT,
+                    "Failed to build request for search organisation unit API",
+                    e.getMessage()
+            );
+        }
+    }
+
+    public CompletableFuture<UpdateOrganisationUnitNameV5Response> updateOrganisationUnitName(
+            UpdateOrganisationUnitNameV5Request payload, String uuid, String nameType) {
+        try {
+            String url = RegkeyEnum.UPDATE_ORGANISATION_UNIT_NAME.resolveEndpoint(uuid, nameType);
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Patch())
+                    .withJsonContent(payload)
+                    .withHeader("X-ING-LastUpdateUser", "X-ING-LastUpdateUser")
+                    .build();
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        try {
+                            return objectMapper.readValue(response.contentString(), UpdateOrganisationUnitNameV5Response.class);
+                        } catch (Exception e) {
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.UPDATE_ORGANISATION_UNIT_NAME,
+                                    "Failed to parse response from updateOrganisationUnitName API",
+                                    e.getMessage()
+                            );
+                        }
+                    });
+        } catch (RichHttpRequestBuilderException e) {
+            throw new DataDistributionApiException(
+                    RegkeyEnum.UPDATE_ORGANISATION_UNIT_NAME,
+                    "Failed to build request for updateOrganisationUnitName API",
+                    e.getMessage()
+            );
+        }
+    }
+
+    public CompletableFuture<UpdateInvolvedPartyResponseV5> updateInvolvedParty(UpdateInvolvedPartyRequestV5 payload, String uuid) {
+        try {
+            String url = RegkeyEnum.UPDATE_INVOLVED_PARTY.resolveEndpoint(uuid);
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Patch())
+                    .withJsonContent(payload)
+                    .withHeader("X-ING-LastUpdateUser", "X-ING-LastUpdateUser")
+                    .build();
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        try {
+                            return objectMapper.readValue(response.contentString(), UpdateInvolvedPartyResponseV5.class);
+                        } catch (Exception e) {
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.UPDATE_INVOLVED_PARTY,
+                                    "Failed to parse response for Update InvolvedParty Request API",
+                                    e.getMessage()
+                            );
+                        }
+                    });
+        } catch (RichHttpRequestBuilderException e) {
+            throw new DataDistributionApiException(
+                    RegkeyEnum.UPDATE_INVOLVED_PARTY,
+                    "Failed to build request for Update InvolvedParty Request API",
+                    e.getMessage()
+            );
+        }
+    }
+
+    private static void printRequest(Request req) {
+        try {
+            log.info("----- Request Details -----");
+            log.info("Method: {}", req.method());
+            log.info("URI: {}", req.uri());
+            log.info("Version: {}", req.version());
+            Map<String, String> headerMap = JavaConverters.mapAsJavaMapConverter(req.headerMap()).asJava();
+            for (Map.Entry<String, String> entry : headerMap.entrySet()) {
+                log.info("Header: {}: {}", entry.getKey(), entry.getValue());
+            }
+            log.info("Body: {}", req.contentString());
+            log.info("---------------------------");
+        } catch (Exception e) {
+            log.error("Exception while printing request", e);
+        }
+    }
+
+    public CompletableFuture<Void> createPostalAddress(String uuid, CreatePostalAddressRequest payload) {
+        try {
+            String url = RegkeyEnum.CREATE_POSTAL_ADDRESS.resolveEndpoint(uuid);
+            log.info("Calling OnePAM API to create postal address for UUID: {}", uuid);
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Patch())
+                    .withJsonContent(payload)
+                    .withHeader("X-ING-LastUpdateUser", "X-ING-LastUpdateUser")
+                    .build();
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                            log.info("Postal address created successfully for UUID: {}", uuid);
+                            return null;
+                        } else {
+                            log.error("Failed to create postal address. Status: {}", response.statusCode());
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.CREATE_POSTAL_ADDRESS,
+                                    "Failed to create postal address",
+                                    "Status: " + response.statusCode()
+                            );
+                        }
+                    });
+        } catch (RichHttpRequestBuilderException e) {
+            throw new DataDistributionApiException(
+                    RegkeyEnum.CREATE_POSTAL_ADDRESS,
+                    "Failed to build request for postal address creation",
+                    e.getMessage()
+            );
+        }
+    }
+}
+
+i dont hv to create anything the methdd is there the api is there allll i hv to od is callll the fucking api parallellllyyyyy if i dont do this im getting fireddddddddd
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
