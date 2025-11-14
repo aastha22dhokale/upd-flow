@@ -1,253 +1,294 @@
-Perfect 👏 — that’s the right mindset for your review call.
-You’re not just showing that you read the deck — you’re showing you understand the technical flows and are thinking about implementation, sequencing, and impact from the Data Distributor (DD) side.
-
-Here’s how I’ll structure it for you:
-	•	I’ll list each of the 16 key architectural points (the same ones we covered earlier).
-	•	Under each, I’ll give 3 sharp, developer-level questions (so 48 total).
-	•	They’ll be phrased exactly like you’d ask them in a project discussion — clear, technical, and relevant to your role in the DD team.
-
-⸻
-
-🧩 1️⃣ Data Ingestor → Data Distributor Flow
-	1.	How does the Data Ingestor signal to DD that a file is ready — through an event or direct file drop?
-	2.	Do we have retry logic if an ingested file fails schema validation in DD?
-	3.	Should DD re-ingest data if Data Ingestor reprocesses the same file (duplicate handling)?
-
-⸻
-
-🧩 2️⃣ Entity Matching & DD UUID Generation
-	1.	What’s the exact matching logic — deterministic (LE #) or fuzzy (demographics)?
-	2.	How do we prevent duplicate DD UUID creation for the same external entity if matching thresholds change?
-	3.	Is there a service or library for matching logic, or is it inlined within DD codebase?
-
-⸻
-
-🧩 3️⃣ OnePAM External LDD – First Initial Upload
-	1.	Since the LDD is empty, how are create failures tracked — via OIL responses or event capture?
-	2.	Should DD block subsequent uploads until all events from the first upload are reconciled?
-	3.	Is the create sequence fully synchronous or partially async (given 8–10M records)?
-
-⸻
-
-🧩 4️⃣ OnePAM External LDD – Subsequent Initial Uploads
-	1.	What’s the rule for deciding between create vs update when matching with DD Store?
-	2.	How does DD detect attribute priority differences between overlapping uploads (e.g., Operating Site vs LE)?
-	3.	Are relationship creations (e.g., LE–OS) retried independently if OnePAM rejects one side?
-
-⸻
-
-🧩 5️⃣ Daily Upload Pattern (OIL Path)
-	1.	What’s the file size threshold for daily OIL uploads — is batching configurable?
-	2.	How is OnePAM notified that a batch upload is complete and validated?
-	3.	Do we have an SLA for the delay between file creation and OIL ingestion?
-
-⸻
-
-🧩 6️⃣ Daily Upload Pattern (API Path)
-	1.	Who controls the switch between file-based (OIL) and API-based (FACT) mode?
-	2.	Is the FACT API rate limit dynamic or fixed per environment?
-	3.	How are API response errors (per record) logged back to the DD Store’s Error Table?
-
-⸻
-
-🧩 7️⃣ Refresh Process Using DD UUID
-	1.	Will DD UUID be persisted permanently as the comparison key in refresh files?
-	2.	How does the Data Refresher ensure alignment when DD UUIDs are missing or newly created?
-	3.	How are deletions or missing entities detected during refresh comparison?
-
-⸻
-
-🧩 8️⃣ Data Refresher (DRF) & Unite Data Lake (UDL)
-	1.	How frequently will DRF pull data from UDL for refresh comparison?
-	2.	What’s the reconciliation logic if DRF detects mismatches between UDL and current OnePAM state?
-	3.	Does DD handle the delta creation logic or rely fully on DRF output?
-
-⸻
-
-🧩 9️⃣ Data Reconciler (DRC) – Main vs External Sync
-	1.	What’s the trigger for DRC execution — timed job, event, or manual run?
-	2.	How do we detect whether an External LDD update should propagate to Main LDD or not?
-	3.	Will DRC send its updates back through DD, or directly to OnePAM?
-
-⸻
-
-🧩 🔟 Notifications & Event Processing
-	1.	What’s the expected volume of OnePAM Notifications DD must handle per day?
-	2.	Are notifications idempotent — how do we avoid processing the same event twice?
-	3.	Where are event processing failures retried — inside DD or via MADP event bus?
-
-⸻
-
-🧩 11️⃣ Error Table / Logging / Reconciliation
-	1.	How long are error table entries retained for manual correction?
-	2.	Do we have tooling for reprocessing specific failed DD UUIDs?
-	3.	Can reconciliation metrics (success, timeout, failure %) be automatically exported?
-
-⸻
-
-🧩 12️⃣ Performance & Throughput
-	1.	Are we still capped at 3–5 TPS for OnePAM APIs, or has GCDM confirmed 25 TPS?
-	2.	How does DD throttle outgoing requests when multiple upload types run concurrently?
-	3.	Can DD parallelize per PartyType safely without breaking OnePAM dependency order?
-
-⸻
-
-🧩 13️⃣ Sole Trader & LE Representative Modelling
-	1.	Is there a final OnePAM decision on how Sole Traders are represented (Individual vs Organization)?
-	2.	How does DD identify if a Sole Trader is already modeled as Individual to avoid duplicate creation?
-	3.	Does LE Representative creation depend on Legal Entity creation timing?
-
-⸻
-
-🧩 14️⃣ Parallel Execution & Sequencing
-	1.	When multiple initial uploads run (LE, OS, Incapable), what’s the enforced sequence?
-	2.	Can DD pipeline the next upload while notifications from the previous one are still pending?
-	3.	How do we isolate partial failures when two uploads overlap on the same object?
-
-⸻
-
-🧩 15️⃣ Data Validation & Attribute Priority
-	1.	Where is the attribute priority matrix (source-of-truth per attribute) defined — DD config or external?
-	2.	Does DD skip attribute updates if values are identical but source timestamps differ?
-	3.	How are numeric vs categorical attribute changes handled in diffing logic?
-
-⸻
-
-🧩 16️⃣ Monitoring, Retries, & Operations
-	1.	Who owns operational dashboards — DD team or MADP Ops?
-	2.	Do we have automated retry pipelines for failed batches (OIL or API)?
-	3.	What’s the rollback strategy if OnePAM processing corrupts a batch?
-
-⸻
-
-✅ Total: 48 questions (3 × 16)
-They’re all developer-focused, deeply tied to DD’s technical flows, and perfect for asking during architecture or design review.
-
-Would you like me to now sort them into categories (e.g., data ingestion, matching, upload logic, error handling, performance, etc.) for easier reference during your meeting?
-
-
-
-Perfect — so now you want general (non-developer, high-level) questions, still aligned with the 16 architecture points, but framed as what a project member or system analyst might ask in review discussions — focusing more on clarity, intent, dependencies, and impact rather than code or logic.
-
-Here’s your full set of 48 general questions (3 × 16):
-
-⸻
-
-🧩 1️⃣ Data Ingestor → Data Distributor Flow
-	1.	What’s the main purpose of the Data Distributor in this overall flow?
-	2.	How does data move from the Ingestor to the Distributor — file, API, or event-based?
-	3.	Who is responsible for validating the data format before processing begins?
-
-⸻
-
-🧩 2️⃣ Entity Matching & DD UUID Generation
-	1.	Why do we need a separate DD UUID if entities already have unique identifiers in source systems?
-	2.	How does the matching process ensure consistency across multiple uploads?
-	3.	What’s the fallback if an entity cannot be matched or identified?
-
-⸻
-
-🧩 3️⃣ OnePAM External LDD – First Initial Upload
-	1.	What is the main goal of the first initial upload into the External LDD?
-	2.	How do we confirm that all records were successfully created in OnePAM?
-	3.	What happens to records that fail during this initial load?
-
-⸻
-
-🧩 4️⃣ OnePAM External LDD – Subsequent Initial Uploads
-	1.	How are overlaps between different upload types handled?
-	2.	What defines whether an upload should create or update an existing entity?
-	3.	Who verifies the correctness of relationships created across entities?
-
-⸻
-
-🧩 5️⃣ Daily Upload Pattern (OIL Path)
-	1.	Why do we continue to use the OIL path for daily uploads instead of a real-time API?
-	2.	What determines the schedule and frequency of these uploads?
-	3.	How do we monitor whether an upload has completed successfully?
-
-⸻
-
-🧩 6️⃣ Daily Upload Pattern (API Path)
-	1.	In what scenarios is the API path preferred over the OIL path?
-	2.	How is performance monitored when using APIs for large data volumes?
-	3.	What mechanisms exist for error handling or retries in the API flow?
-
-⸻
-
-🧩 7️⃣ Refresh Process Using DD UUID
-	1.	What triggers a refresh process — time-based or event-based?
-	2.	How does the refresh process ensure data accuracy over time?
-	3.	What is the impact if the DD UUID reference is missing or incorrect?
-
-⸻
-
-🧩 8️⃣ Data Refresher (DRF) & Unite Data Lake (UDL)
-	1.	How does the Data Refresher use data from the Unite Data Lake?
-	2.	What’s the purpose of comparing OnePAM data with UDL data?
-	3.	How are discrepancies handled when found during refresh?
-
-⸻
-
-🧩 9️⃣ Data Reconciler (DRC) – Main vs External Sync
-	1.	What’s the role of the Data Reconciler between Main and External LDDs?
-	2.	How often is reconciliation performed?
-	3.	What actions are taken if mismatches are detected during reconciliation?
-
-⸻
-
-🧩 🔟 Notifications & Event Processing
-	1.	What kind of events does OnePAM send to the Data Distributor?
-	2.	How does DD ensure no event is missed or processed twice?
-	3.	How are downstream systems notified after DD processes an event?
-
-⸻
-
-🧩 11️⃣ Error Table / Logging / Reconciliation
-	1.	How are processing errors captured and stored?
-	2.	What’s the standard procedure for reviewing and resolving errors?
-	3.	Is there a threshold of error rate that triggers escalation or alerting?
-
-⸻
-
-🧩 12️⃣ Performance & Throughput
-	1.	What is the current throughput capability of DD when processing uploads?
-	2.	How does the system scale with increased data volume or additional entity types?
-	3.	What are the major performance bottlenecks identified so far?
-
-⸻
-
-🧩 13️⃣ Sole Trader & LE Representative Modelling
-	1.	What are the key challenges in modeling Sole Traders within OnePAM?
-	2.	How does this model differ from traditional Legal Entity structures?
-	3.	Is the proposed model finalized, or still under review with OnePAM teams?
-
-⸻
-
-🧩 14️⃣ Parallel Execution & Sequencing
-	1.	Can multiple uploads be run at the same time without conflict?
-	2.	How does the system maintain order when dependent entities are processed in parallel?
-	3.	What are the safeguards to prevent overlapping or duplicate data processing?
-
-⸻
-
-🧩 15️⃣ Data Validation & Attribute Priority
-	1.	Who defines which attributes take priority during conflicts between sources?
-	2.	How does DD ensure data integrity when multiple systems send updates?
-	3.	Is there an automated mechanism to track which attributes were overridden and why?
-
-⸻
-
-🧩 16️⃣ Monitoring, Retries, & Operations
-	1.	What kind of monitoring tools are available to track DD operations?
-	2.	How are failed uploads or API calls retried automatically?
-	3.	What’s the escalation or notification process for operational incidents?
-
-⸻
-
-✅ Total: 48 general questions (3 × 16)
-These are clear, conceptual, and business-oriented, perfect for steering discussions with leads, architects, or managers — showing that you understand both function and impact, not just code.
-
-⸻
-
-Would you like me to now make a merged version — where each of the 16 points has both developer + general (6 questions per point), so you can use it as a combined review set?
+package com.ing.datadist.api.service;
+
+import com.ing.datadist.api.model.CreateOrganisationUnitRequest;
+import com.ing.datadist.api.model.CreateOrganisationUnitNameRequest;
+import com.ing.datadist.api.model.InvolvedPartiesOrganisationUnitResponse;
+import com.ing.datadist.api.model.UpdateExternalIdentifierOrganisationUnitRequest;
+import com.ing.datadist.api.model.OrganisationUnitOrganisationRelationshipRequest;
+import com.ing.datadist.configreader.CofaceOpsConfigReader;
+import static com.ing.datadist.api.utils.DataDistributionConstants.DATA_SOURCE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.LOGICAL_DATA_DOMAIN;
+import static com.ing.datadist.api.utils.DataDistributionConstants.LANGUAGE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.CHANNEL_OF_ENTRY;
+import static com.ing.datadist.api.utils.DataDistributionConstants.ORGANISATION_UNIT_NAME_TYPE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.STRUCTURE_TYPE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.EXTERNAL_ID_TYPE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.EXTERNAL_ID_STATUS;
+import static com.ing.datadist.api.utils.DataDistributionConstants.PLACE_OF_ISSUE;
+import static com.ing.datadist.api.utils.DataDistributionConstants.ROLE_REASON_TYPE;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+
+@Service
+@Slf4j
+public class OrganisationUnitService {
+
+    private final OnePamRepository onePamRepository;
+    private final CofaceOpsConfigReader configReader;
+    private final AddressService addressService;
+    private final Executor executor;
+
+
+    public OrganisationUnitService(OnePamRepository onePamRepository, CofaceOpsConfigReader configReader, AddressService addressService) {
+        this.onePamRepository = onePamRepository;
+        this.configReader = configReader;
+        this.addressService = addressService;
+
+    }
+    public void processOrganisationUnit(String orgNumber) {
+
+        // ------------------ STEP 1: Create Organisation Unit (sync) ------------------
+        InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+
+        String childUuid = response.getInvolvedPartyIdentifier();
+
+        if (childUuid == null || childUuid.isBlank()) {
+            log.warn("No child UUID (involvedPartyIdentifier) found in response for orgNumber: {}", orgNumber);
+            return;
+        }
+
+        // ------------------ STEP 2: First mandatory synchronous call ------------------
+        UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+
+        updateExternalIdentifier(childUuid, updateRequest);  // MUST be sync
+        log.info("✔ First sync updateExternalIdentifier completed for UUID: {}", childUuid);
+
+
+        // ------------------ STEP 3: Prepare parent UUID (Scenario D) ------------------
+        // You already have parentUuid from previous step or earlier processing
+        String parentUuid = getParentUuidFromCache(orgNumber); // <-- your logic
+
+        if (parentUuid == null || parentUuid.isBlank()) {
+            log.warn("Parent UUID not found for orgNumber: {}", orgNumber);
+            return;
+        }
+
+        // Build hierarchy payload NOW (no fetching required)
+        OrganisationUnitOrganisationRelationshipRequest hierarchyPayload =
+                OrganisationUnitOrganisationRelationshipRequest.builder()
+                        .childOrganisationUnitIdentifier(childUuid)
+                        .parentOrganisationIdentifier(parentUuid)
+                        .parentRoleReasonType("LEGAL")   // example
+                        .dataSource("ING")
+                        .build();
+
+
+        // ------------------ STEP 4: Run remaining 3 calls in PARALLEL ------------------
+
+        CompletableFuture<Void> addressFuture =
+                CompletableFuture.runAsync(() ->
+                                addressService.createPostalAddress(childUuid, orgNumber),
+                        executor
+                );
+
+        CompletableFuture<Void> hierarchyFuture =
+                onePamRepository.createOrganisationUnitHierarchy(hierarchyPayload)
+                        .thenAccept(res -> log.info("✔ Hierarchy created: child={} parent={}", childUuid, parentUuid));
+
+        CompletableFuture<Void> updateExtId2Future =
+                CompletableFuture.runAsync(() ->
+                                updateExternalIdentifier(childUuid, updateRequest),
+                        executor
+                );
+
+        // ------------------ STEP 5: Wait for ALL 3 parallel calls ------------------
+        CompletableFuture.allOf(addressFuture, hierarchyFuture, updateExtId2Future).join();
+
+        log.info("✔ All parallel calls completed successfully for child UUID: {}", childUuid);
+    }
+
+//    public void processOrganisationUnit(String orgNumber) {
+//        InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+//        String uuid = response.getInvolvedPartyIdentifier();
+//        if (uuid == null || uuid.isBlank()) {
+//            log.warn("No involvedPartyIdentifier found in response");
+//            return;
+//        }
+//
+//        UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+//        updateExternalIdentifier(uuid, updateRequest);
+//        addressService.createPostalAddress(uuid, orgNumber);
+//
+//    }
+
+//    public void processOrganisationUnit(String orgNumber) {
+//
+//        // ------------------ STEP 1: Create Organisation Unit (sync) ------------------
+//        InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+//        String uuid = response.getInvolvedPartyIdentifier();
+//        if (uuid == null || uuid.isBlank()) {
+//            log.warn("No involvedPartyIdentifier found in response");
+//            return;
+//        }
+//public void processOrganisationUnit(String orgNumber) {
+//    // ------------------ STEP 1: Create Organisation Unit (SYNC) ------------------
+//    InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+//    String uuid = response.getInvolvedPartyIdentifier();
+//    if (uuid == null || uuid.isBlank()) {
+//        log.warn("No involvedPartyIdentifier found in OrganisationUnit response for orgNumber: {}", orgNumber);
+//        return;
+//    }
+//    // ------------------ STEP 2: FIRST mandatory synchronous call ------------------
+//    UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+//    updateExternalIdentifier(uuid, updateRequest); // MUST RUN FIRST (SYNC)
+//    log.info("✔ Completed mandatory sync updateExternalIdentifier for UUID: {}", uuid);
+//    // ------------------ STEP 3: 3 PARALLEL CALLS ------------------
+//    CompletableFuture<Void> addressFuture =
+//            CompletableFuture.runAsync(() ->
+//                            addressService.createPostalAddress(uuid, orgNumber),
+//                    executor
+//            );
+//    CompletableFuture<Void> hierarchyFuture =
+//            CompletableFuture.runAsync(() -> {
+//                String parentId = getParentId(orgNumber);   // confirm how you fetch parent
+//                createOrganisationUnitHierarchy(uuid, parentId);
+//            }, executor);
+//    CompletableFuture<Void> extId2Future =
+//            CompletableFuture.runAsync(() ->
+//                            onePamRepository.updateExternalIdentifier(uuid, updateRequest),
+//                    executor
+//            );
+//
+//    // ------------------ STEP 4: WAIT FOR ALL PARALLEL CALLS ------------------
+//    CompletableFuture.allOf(addressFuture, hierarchyFuture, extId2Future)
+//            .join();
+//    log.info("✔ All parallel Organisation Unit update calls completed for UUID: {}", uuid);
+//}
+
+
+    private InvolvedPartiesOrganisationUnitResponse createOrganisationUnit(String orgNumber) {
+        List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
+        Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
+
+        String orgUnitName = config.get("organisationUnitName");
+        String countryOfResidence = config.get("countryOfResidence");
+        String effectiveDate = config.get("dateOfIssue");
+
+        if (orgUnitName == null || orgNumber == null || countryOfResidence == null || effectiveDate == null) {
+            log.warn("Missing config values for organisation unit: {}", orgNumber);
+            throw new RuntimeException("Missing config for organisation unit");
+        }
+
+        CreateOrganisationUnitRequest request = CreateOrganisationUnitRequest.builder()
+                .dataSource(DATA_SOURCE)
+                .logicalDataDomain(LOGICAL_DATA_DOMAIN)
+                .countryOfResidence(countryOfResidence)
+                .preferredLanguage(LANGUAGE)
+                .channelOfEntry(CHANNEL_OF_ENTRY)
+                .organisationUnitStructureType(STRUCTURE_TYPE)
+                .effectiveDate(effectiveDate)
+                .organisationUnitNames(Collections.singletonList(
+                        CreateOrganisationUnitNameRequest.builder()
+                                .organisationUnitNameType(ORGANISATION_UNIT_NAME_TYPE)
+                                .organisationUnitName(orgUnitName)
+                                .build()))
+                .build();
+
+        try {
+            return onePamRepository.createInvolvedParty(request).get();
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Failed to create organisation unit", e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Creation failed", e);
+        }
+    }
+
+    private UpdateExternalIdentifierOrganisationUnitRequest buildUpdateRequest(String orgNumber) {
+        List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
+        Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
+
+        String uuid = config.get("uuid");
+        String countryOfIssue = config.get("countryOfResidence");
+        String dateOfIssue = config.get("dateOfIssue");
+        String expiryDate = config.get("expiryDate");
+
+        if (uuid == null || countryOfIssue == null || dateOfIssue == null || expiryDate == null) {
+            log.warn("Missing config values for external identifier update: {}", orgNumber);
+            throw new RuntimeException("Missing config for external identifier update");
+        }
+
+        return UpdateExternalIdentifierOrganisationUnitRequest.builder()
+                .involvedPartyExternalIdentifierType(EXTERNAL_ID_TYPE)
+                .involvedPartyExternalIdentifierValue(uuid)
+                .involvedPartyExternalIdentifierStatusType(EXTERNAL_ID_STATUS)
+                .countryOfIssue(countryOfIssue)
+                .placeOfIssue(PLACE_OF_ISSUE)
+                .dateOfIssue(dateOfIssue)
+                .expiryDate(expiryDate)
+                .dataSource(DATA_SOURCE)
+                .effectiveDate(dateOfIssue)
+                .endDate(ZonedDateTime.now().plusYears(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .build();
+    }
+
+    private void updateExternalIdentifier(String uuid, UpdateExternalIdentifierOrganisationUnitRequest request) {
+        try {
+            onePamRepository.updateExternalIdentifier(uuid, request).get();
+            log.info("Successfully updated external identifier for UUID: {}", uuid);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Failed to update external identifier", e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Update failed", e);
+        }
+    }
+
+    private void createOrganisationUnitHierarchy(String childId, String parentId) {
+        OrganisationUnitOrganisationRelationshipRequest request = OrganisationUnitOrganisationRelationshipRequest.builder()
+                .childOrganisationUnitIdentifier(childId)
+                .parentOrganisationIdentifier(parentId)
+                .parentRoleReasonType(ROLE_REASON_TYPE)
+                .dataSource(DATA_SOURCE)
+                .build();
+
+        try {
+            onePamRepository.createOrganisationUnitHierarchy(request).get();
+            log.info("Successfully created hierarchy between child: {} and parent: {}", childId, parentId);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Failed to create organisation unit hierarchy", e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Hierarchy creation failed", e);
+        }
+    }
+}
+
+
+[INFO] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/configreader/CofaceOpsConfigReader.java: Some input files use or override a deprecated API.
+[INFO] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/configreader/CofaceOpsConfigReader.java: Recompile with -Xlint:deprecation for details.
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR :
+[INFO] -------------------------------------------------------------
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[70,29] cannot find symbol       
+  symbol:   method getParentUuidFromCache(java.lang.String)
+  location: class com.ing.datadist.api.service.OrganisationUnitService
+[INFO] 1 error
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  13.908 s
+[INFO] Finished at: 2025-11-14T14:27:58+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure
+[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[70,29] cannot find symbol       
+[ERROR]   symbol:   method getParentUuidFromCache(java.lang.String)
+[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
+[ERROR]
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+PS C:\Users\UU47VT\dd-new\P33558-DataDistributorAPI\DataDistribution> 
