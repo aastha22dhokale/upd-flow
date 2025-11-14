@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.CompletableFuture;
 
 @Service
 @Slf4j
@@ -34,97 +33,31 @@ public class OrganisationUnitService {
 
     private final OnePamRepository onePamRepository;
     private final CofaceOpsConfigReader configReader;
+    private final AddressService addressService;
 
-    public OrganisationUnitService(OnePamRepository onePamRepository, CofaceOpsConfigReader configReader) {
+    public OrganisationUnitService(OnePamRepository onePamRepository, CofaceOpsConfigReader configReader, AddressService addressService) {
         this.onePamRepository = onePamRepository;
         this.configReader = configReader;
+        this.addressService = addressService;
     }
 
-
-
     public void processOrganisationUnit(String orgNumber) {
-
         InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
-
         String uuid = response.getInvolvedPartyIdentifier();
-
         if (uuid == null || uuid.isBlank()) {
-
             log.warn("No involvedPartyIdentifier found in response");
-
             return;
-
         }
 
         UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
-
+        
+        
+        //start parallel calls for following 3 apis
         updateExternalIdentifier(uuid, updateRequest);
-
-        List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
-
-        Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
-
-        String parentUuid = config.get("parentUuid");
-
-        boolean hasParent = parentUuid != null && !parentUuid.isBlank();
-
-        CreatePostalAddressRequest addressReq = buildPostalAddressRequest(uuid);
-
-        CompletableFuture<Void> addressFuture = CompletableFuture.runAsync(() -> {
-
-            try {
-
-                onePamRepository.createPostalAddress(addressReq).get();
-
-            } catch (Exception e) {
-
-                throw new RuntimeException(e);
-
-            }
-
-        });
-
-        CompletableFuture<Void> secondUpdateFuture = CompletableFuture.runAsync(() -> {
-
-            try {
-
-                updateExternalIdentifier(uuid, updateRequest);
-
-            } catch (Exception e) {
-
-                throw new RuntimeException(e);
-
-            }
-
-        });
-
-        CompletableFuture<Void> hierarchyFuture = hasParent
-
-                ? CompletableFuture.runAsync(() -> createOrganisationUnitHierarchy(uuid, parentUuid))
-
-                : CompletableFuture.completedFuture(null);
-
-        CompletableFuture.allOf(addressFuture, secondUpdateFuture, hierarchyFuture).join();
-
-        log.info("Completed processOrganisationUnit for orgNumber: {}", orgNumber);
+        addressService.createPostalAddress(uuid, orgNumber);
+        //call create org unit hierarchy  here
 
     }
-
-
-    // ---------
-
-
-//    public void processOrganisationUnit(String orgNumber) {
-//        InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
-//        String uuid = response.getInvolvedPartyIdentifier();
-//        if (uuid == null || uuid.isBlank()) {
-//            log.warn("No involvedPartyIdentifier found in response");
-//            return;
-//        }
-//
-//        UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
-//        updateExternalIdentifier(uuid, updateRequest);
-//    }
 
     private InvolvedPartiesOrganisationUnitResponse createOrganisationUnit(String orgNumber) {
         List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
@@ -219,28 +152,6 @@ public class OrganisationUnitService {
             throw new RuntimeException("Hierarchy creation failed", e);
         }
     }
-[INFO] -------------------------------------------------------------
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD FAILURE
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time:  19.186 s
-[INFO] Finished at: 2025-11-14T19:50:06+05:30
-[INFO] ------------------------------------------------------------------------
-[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure: Compilation failure:
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[71,9] cannot find symbol        
-[ERROR]   symbol:   class CreatePostalAddressRequest
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[71,49] cannot find symbol       
-[ERROR]   symbol:   method buildPostalAddressRequest(java.lang.String)
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] -> [Help 1]
-[ERROR]
-[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
-[ERROR] Re-run Maven using the -X switch to enable full debug logging.
-[ERROR]
-[ERROR] For more information about the errors and possible solutions, please read the following articles:
-[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
-PS C:\Users\UU47VT\dd-new\P33558
 
-brother just callll the api from onepamrepository classs it will create the req n shit dont u get it?r u dumb?????????????
-}r
+
+}
