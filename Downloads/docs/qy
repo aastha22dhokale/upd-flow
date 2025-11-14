@@ -1,0 +1,370 @@
+Understood.
+
+Below are 3 sharp, non-repetitive, architect-level questions for every slide group I gave you earlier.
+
+They are framed to show deep understanding, critical thinking, and awareness of dependencies — exactly what impresses domain architects.
+
+You can pick any 10–12 tomorrow, but I’m giving all groups fully covered.
+
+⸻
+
+✅ PART 1 — HIGH-LEVEL ARCHITECTURE
+
+⸻
+
+Slide Group 1 — Context & Business Requirements
+
+(Types of data, ingestion, DI, OnePAM/MADP split)
+
+Three Questions
+
+	1.	How do we ensure consistency when different external suppliers provide conflicting values for the same Party attributes?
+
+	2.	What governance mechanism defines which attributes belong to OnePAM vs MADP, and how do changes to that split get ratified?
+
+	3.	Are there any attributes from the suppliers that OnePAM will reject or normalise differently, and do we need pre-standardization in DI to minimise upload failures?
+
+⸻
+
+Slide Group 2 — Upload vs Update Phases
+
+Three Questions
+
+	1.	What specific validation must complete successfully in the External LDD before we can reliably start Main updates?
+
+	2.	In what scenarios would we skip the Update phase even if an External upload completes?
+
+	3.	Does OnePAM provide transaction-level atomicity for External → Main transitions, or must DD manage partial failures?
+
+⸻
+
+Slide Group 3 — Constraints (Volume, Multiplication, Time Windows, OnePAM TPS limits)
+
+Three Questions
+
+	1.	What is our defined upper boundary for acceptable throughput on OnePAM before we risk throttling or rejections?
+
+	2.	Do we have a fallback plan if the initial load exceeds the quiet-hour thresholds or runs past maintenance windows?
+
+	3.	Which constraint is considered the highest architectural risk for Phase 1 and why?
+
+⸻
+
+Slide Group 4 — Mitigation Strategies
+
+Three Questions
+
+	1.	Is there a clear approval from GCDM on pre-generating UUIDs for parallelization, or do we need to design both paths for safety?
+
+	2.	If filtering unchanged attributes is a key mitigation, what level of supplier noise (redundant/unnecessary unchanged values) do we currently expect?
+
+	3.	How will we measure whether the phased rollout actually reduces risk or pushes complexity downstream?
+
+⸻
+
+Slide Group 5 — DD Principles & Functional Architecture
+
+Three Questions
+
+	1.	For policy management in DD, which roles will be allowed to modify survivorship and overwrite rules — central architects or data stewards?
+
+	2.	Is DD-UUID expected to remain stable across all future data sources or can we foresee scenarios where source-specific UUIDs must be retained?
+
+	3.	How are notification failures from OnePAM escalated — do we retry, reconcile later, or block downstream processing?
+
+⸻
+
+Slide Group 6 — Generic End-to-End DD Flow (Preprocess → Upload → Postprocess)
+
+Three Questions
+
+	1.	What matching tolerance thresholds will be used during entity matching — exact, fuzzy, or weighted multi-field?
+
+	2.	If OnePAM returns partial success on batch updates, how should DD decide between rollback vs forward-fix?
+
+	3.	How do we ensure idempotency when a file is re-delivered or replayed?
+
+⸻
+
+Slide Group 7 — DRF & DRC (Refresh & Reconcile)
+
+Three Questions
+
+	1.	For DRF, if a full refresh contains attribute regressions (old data), how do we prevent overwriting newer values in External?
+
+	2.	For DRC, what is the expected SLA for comparing UDL extracts versus triggering updates in OnePAM Main?
+
+	3.	Does DRF/DRC require versioning of historical files for audit, or is UDL snapshotting considered sufficient?
+
+⸻
+
+✅ PART 2 — UP TO ONEPAM EXTERNAL LDD UPLOAD
+
+⸻
+
+Slide Group 8 — Phased Approach (Phase 1 → 2 → 3)
+
+Three Questions
+
+	1.	What criteria define “Phase 1 complete” — successful initial load, stable daily deltas, or stakeholder sign-off?
+
+	2.	If MADP onboarding (Phase 3) is delayed, do we foresee any data divergence risks between OnePAM and MADP?
+
+	3.	Will the architecture support mixed-mode operation where some flows use External-only and some use both External & Main?
+
+⸻
+
+Slide Group 9 — Upload/Update Patterns (API vs OIL)
+
+Three Questions
+
+	1.	Is there a dynamic rule engine that chooses API vs OIL based on volume, or is this fixed per source?
+
+	2.	What is the max file size we can reliably push via OIL without fragmentation concerns?
+
+	3.	How do we recover from a failed OIL batch when OnePAM partially ingests the file?
+
+⸻
+
+Slide Group 10 — First Initial Upload (Empty External LDD)
+
+Three Questions
+
+	1.	Does OnePAM enforce ordering of Party creation vs Relationship creation, and how does DD handle misordered dependencies?
+
+	2.	Will OIL enforce uniqueness for external UUIDs or must DD pre-validate uniqueness before file creation?
+
+	3.	Is there a required sequence for initial load cutover to avoid double creation during the switch from DI → DD?
+
+⸻
+
+Slide Group 11 — Subsequent Initial Uploads (External already contains data)
+
+Three Questions
+
+	1.	If entity matching yields multiple candidates with similar confidence, does the architect recommend human intervention or automated tie-breaking?
+
+	2.	How should DD react when notifications are delayed significantly beyond SLA — continue, pause, or re-queue?
+
+	3.	What is the preferred strategy for deduplicating overlapping supplier data during subsequent initial uploads?
+
+⸻
+
+Slide Group 12 — Daily Uploads (OIL vs API)
+
+Three Questions
+
+	1.	Should the DD orchestrator dynamically batch small API-based changes to avoid excess calls during high-volume periods?
+
+	2.	What is the expected end-to-end latency for API calls including OnePAM processing time?
+
+	3.	Are there specific Party types (e.g., Bankrupt/Incapables) that OnePAM recommends always via API rather than file?
+
+⸻
+
+Slide Group 13 — Refresh of External LDD (DRF + UDL)
+
+Three Questions
+
+	1.	How do we guarantee the UDL snapshot used by DRF matches the timing of the OnePAM External state to avoid stale comparisons?
+
+	2.	Could DRF generate very large delta files, and do we need throttling before sending them to DD?
+
+	3.	Does the architect foresee future automation to perform DRF runs incrementally rather than full comparisons?
+
+⸻
+
+🎯 If you want, I can also prepare:
+
+	•	Your final curated list of the 10 BEST questions to actually ask tomorrow
+
+	•	A 1-page cheat sheet for the call
+
+	•	A confidence-boosting “what to say in introduction” script
+
+Just tell me, and I’ll prepare it immediately.Understood.
+
+Below are 3 sharp, non-repetitive, architect-level questions for every slide group I gave you earlier.
+
+They are framed to show deep understanding, critical thinking, and awareness of dependencies — exactly what impresses domain architects.
+
+You can pick any 10–12 tomorrow, but I’m giving all groups fully covered.
+
+⸻
+
+✅ PART 1 — HIGH-LEVEL ARCHITECTURE
+
+⸻
+
+Slide Group 1 — Context & Business Requirements
+
+(Types of data, ingestion, DI, OnePAM/MADP split)
+
+Three Questions
+
+	1.	How do we ensure consistency when different external suppliers provide conflicting values for the same Party attributes?
+
+	2.	What governance mechanism defines which attributes belong to OnePAM vs MADP, and how do changes to that split get ratified?
+
+	3.	Are there any attributes from the suppliers that OnePAM will reject or normalise differently, and do we need pre-standardization in DI to minimise upload failures?
+
+⸻
+
+Slide Group 2 — Upload vs Update Phases
+
+Three Questions
+
+	1.	What specific validation must complete successfully in the External LDD before we can reliably start Main updates?
+
+	2.	In what scenarios would we skip the Update phase even if an External upload completes?
+
+	3.	Does OnePAM provide transaction-level atomicity for External → Main transitions, or must DD manage partial failures?
+
+⸻
+
+Slide Group 3 — Constraints (Volume, Multiplication, Time Windows, OnePAM TPS limits)
+
+Three Questions
+
+	1.	What is our defined upper boundary for acceptable throughput on OnePAM before we risk throttling or rejections?
+
+	2.	Do we have a fallback plan if the initial load exceeds the quiet-hour thresholds or runs past maintenance windows?
+
+	3.	Which constraint is considered the highest architectural risk for Phase 1 and why?
+
+⸻
+
+Slide Group 4 — Mitigation Strategies
+
+Three Questions
+
+	1.	Is there a clear approval from GCDM on pre-generating UUIDs for parallelization, or do we need to design both paths for safety?
+
+	2.	If filtering unchanged attributes is a key mitigation, what level of supplier noise (redundant/unnecessary unchanged values) do we currently expect?
+
+	3.	How will we measure whether the phased rollout actually reduces risk or pushes complexity downstream?
+
+⸻
+
+Slide Group 5 — DD Principles & Functional Architecture
+
+Three Questions
+
+	1.	For policy management in DD, which roles will be allowed to modify survivorship and overwrite rules — central architects or data stewards?
+
+	2.	Is DD-UUID expected to remain stable across all future data sources or can we foresee scenarios where source-specific UUIDs must be retained?
+
+	3.	How are notification failures from OnePAM escalated — do we retry, reconcile later, or block downstream processing?
+
+⸻
+
+Slide Group 6 — Generic End-to-End DD Flow (Preprocess → Upload → Postprocess)
+
+Three Questions
+
+	1.	What matching tolerance thresholds will be used during entity matching — exact, fuzzy, or weighted multi-field?
+
+	2.	If OnePAM returns partial success on batch updates, how should DD decide between rollback vs forward-fix?
+
+	3.	How do we ensure idempotency when a file is re-delivered or replayed?
+
+⸻
+
+Slide Group 7 — DRF & DRC (Refresh & Reconcile)
+
+Three Questions
+
+	1.	For DRF, if a full refresh contains attribute regressions (old data), how do we prevent overwriting newer values in External?
+
+	2.	For DRC, what is the expected SLA for comparing UDL extracts versus triggering updates in OnePAM Main?
+
+	3.	Does DRF/DRC require versioning of historical files for audit, or is UDL snapshotting considered sufficient?
+
+⸻
+
+✅ PART 2 — UP TO ONEPAM EXTERNAL LDD UPLOAD
+
+⸻
+
+Slide Group 8 — Phased Approach (Phase 1 → 2 → 3)
+
+Three Questions
+
+	1.	What criteria define “Phase 1 complete” — successful initial load, stable daily deltas, or stakeholder sign-off?
+
+	2.	If MADP onboarding (Phase 3) is delayed, do we foresee any data divergence risks between OnePAM and MADP?
+
+	3.	Will the architecture support mixed-mode operation where some flows use External-only and some use both External & Main?
+
+⸻
+
+Slide Group 9 — Upload/Update Patterns (API vs OIL)
+
+Three Questions
+
+	1.	Is there a dynamic rule engine that chooses API vs OIL based on volume, or is this fixed per source?
+
+	2.	What is the max file size we can reliably push via OIL without fragmentation concerns?
+
+	3.	How do we recover from a failed OIL batch when OnePAM partially ingests the file?
+
+⸻
+
+Slide Group 10 — First Initial Upload (Empty External LDD)
+
+Three Questions
+
+	1.	Does OnePAM enforce ordering of Party creation vs Relationship creation, and how does DD handle misordered dependencies?
+
+	2.	Will OIL enforce uniqueness for external UUIDs or must DD pre-validate uniqueness before file creation?
+
+	3.	Is there a required sequence for initial load cutover to avoid double creation during the switch from DI → DD?
+
+⸻
+
+Slide Group 11 — Subsequent Initial Uploads (External already contains data)
+
+Three Questions
+
+	1.	If entity matching yields multiple candidates with similar confidence, does the architect recommend human intervention or automated tie-breaking?
+
+	2.	How should DD react when notifications are delayed significantly beyond SLA — continue, pause, or re-queue?
+
+	3.	What is the preferred strategy for deduplicating overlapping supplier data during subsequent initial uploads?
+
+⸻
+
+Slide Group 12 — Daily Uploads (OIL vs API)
+
+Three Questions
+
+	1.	Should the DD orchestrator dynamically batch small API-based changes to avoid excess calls during high-volume periods?
+
+	2.	What is the expected end-to-end latency for API calls including OnePAM processing time?
+
+	3.	Are there specific Party types (e.g., Bankrupt/Incapables) that OnePAM recommends always via API rather than file?
+
+⸻
+
+Slide Group 13 — Refresh of External LDD (DRF + UDL)
+
+Three Questions
+
+	1.	How do we guarantee the UDL snapshot used by DRF matches the timing of the OnePAM External state to avoid stale comparisons?
+
+	2.	Could DRF generate very large delta files, and do we need throttling before sending them to DD?
+
+	3.	Does the architect foresee future automation to perform DRF runs incrementally rather than full comparisons?
+
+⸻
+
+🎯 If you want, I can also prepare:
+
+	•	Your final curated list of the 10 BEST questions to actually ask tomorrow
+
+	•	A 1-page cheat sheet for the call
+
+	•	A confidence-boosting “what to say in introduction” script
+
+Just tell me, and I’ll prepare it immediately.
+ 
