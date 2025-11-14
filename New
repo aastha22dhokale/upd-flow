@@ -1,4 +1,4 @@
-public void processOrganisationUnit(String orgNumber, String parentUuid) {
+public void processOrganisationUnit(String orgNumber) {
 
     // ---------------- STEP 1: Create child org unit ----------------
     InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
@@ -13,9 +13,17 @@ public void processOrganisationUnit(String orgNumber, String parentUuid) {
     UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
     updateExternalIdentifier(childUuid, updateRequest);
 
-    // ---------------- STEP 3: Run parallel calls ONLY ----------------
+    // ---------------- STEP 3: Resolve Parent UUID from config ----------------
+    List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
+    Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
+
+    String parentUuid = config.get("parentUuid");   // ONLY READ — no changes
+    boolean hasParent = parentUuid != null && !parentUuid.isBlank();
+
+    // ---------------- STEP 4: Run 3 tasks in parallel ----------------
     CompletableFuture<Void> addressFuture = CompletableFuture.runAsync(() -> {
         try {
+            // calling address service
             onePamRepository.createPostalAddress(childUuid, orgNumber).get();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -30,20 +38,18 @@ public void processOrganisationUnit(String orgNumber, String parentUuid) {
         }
     });
 
-    CompletableFuture<Void> hierarchyFuture = CompletableFuture.runAsync(() -> {
-        try {
-            // Tasklet decides if parentUuid is null or not
-            if (parentUuid != null && !parentUuid.isBlank()) {
-                createOrganisationUnitHierarchy(childUuid, parentUuid);
-            } else {
-                log.info("Tasklet decided → No hierarchy created for {}", childUuid);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    });
+    CompletableFuture<Void> hierarchyFuture;
 
-    // ---------------- STEP 4: Wait for all parallel tasks ----------------
+    if (hasParent) {
+        hierarchyFuture = CompletableFuture.runAsync(() -> {
+            createOrganisationUnitHierarchy(childUuid, parentUuid);
+        });
+    } else {
+        log.info("No parent found → No hierarchy created for {}", childUuid);
+        hierarchyFuture = CompletableFuture.completedFuture(null);
+    }
+
+    // ---------------- STEP 5: Wait for all parallel tasks ----------------
     CompletableFuture.allOf(addressFuture, secondUpdateFuture, hierarchyFuture).join();
 
     log.info("Completed processOrganisationUnit for orgNumber: {}", orgNumber);
