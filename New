@@ -1,45 +1,3 @@
-[INFO] 9 errors
-[INFO] -------------------------------------------------------------
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD FAILURE
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time:  18.578 s
-[INFO] Finished at: 2025-11-14T19:23:31+05:30
-[INFO] ------------------------------------------------------------------------
-[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure: Compilation failure:
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[66,9] cannot find symbol        
-[ERROR]   symbol:   class CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[66,49] cannot find symbol       
-[ERROR]   symbol:   variable CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[69,65] incompatible types: java.lang.String cannot be converted to com.ing.datadist.api.model.CreatePostalAddressRequest
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[75,9] cannot find symbol        
-[ERROR]   symbol:   class CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[75,54] cannot find symbol       
-[ERROR]   symbol:   variable CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[83,9] cannot find symbol        
-[ERROR]   symbol:   class CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[86,31] cannot find symbol       
-[ERROR]   symbol:   variable CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[91,31] cannot find symbol       
-[ERROR]   symbol:   variable CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] /C:/Users/UU47VT/dd-new/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/OrganisationUnitService.java:[95,9] cannot find symbol        
-[ERROR]   symbol:   variable CompletableFuture
-[ERROR]   location: class com.ing.datadist.api.service.OrganisationUnitService
-[ERROR] -> [Help 1]
-[ERROR]
-[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
-[ERROR] Re-run Maven using the -X switch to enable full debug logging.
-[ERROR]
-[ERROR] For more information about the errors and possible solutions, please read the following articles:
-[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
-PS C:\Users\UU47VT\dd-new\P33558-DataDistributorAPI\DataDistribution> 
 package com.ing.datadist.api.service;
 
 import com.ing.datadist.api.model.CreateOrganisationUnitRequest;
@@ -48,6 +6,7 @@ import com.ing.datadist.api.model.InvolvedPartiesOrganisationUnitResponse;
 import com.ing.datadist.api.model.UpdateExternalIdentifierOrganisationUnitRequest;
 import com.ing.datadist.api.model.OrganisationUnitOrganisationRelationshipRequest;
 import com.ing.datadist.configreader.CofaceOpsConfigReader;
+
 import static com.ing.datadist.api.utils.DataDistributionConstants.DATA_SOURCE;
 import static com.ing.datadist.api.utils.DataDistributionConstants.LOGICAL_DATA_DOMAIN;
 import static com.ing.datadist.api.utils.DataDistributionConstants.LANGUAGE;
@@ -67,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;   // ✅ FIXED
 import java.util.concurrent.ExecutionException;
 
 @Service
@@ -81,10 +41,11 @@ public class OrganisationUnitService {
         this.configReader = configReader;
     }
 
+    // ---------------------------------------------------------------------------------------------
 
     public void processOrganisationUnit(String orgNumber) {
 
-        // ---------------- STEP 1: Create child org unit ----------------
+        // STEP 1: Create child org unit
         InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
         String childUuid = response.getInvolvedPartyIdentifier();
 
@@ -93,22 +54,21 @@ public class OrganisationUnitService {
             return;
         }
 
-        // ---------------- STEP 2: First mandatory sync update ----------------
+        // STEP 2: First mandatory sync update
         UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
         updateExternalIdentifier(childUuid, updateRequest);
 
-        // ---------------- STEP 3: Resolve Parent UUID from config ----------------
+        // STEP 3: Parent UUID from config (no checking)
         List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
         Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
 
-        String parentUuid = config.get("parentUuid");   // ONLY READ — no changes
+        String parentUuid = config.get("parentUuid");
         boolean hasParent = parentUuid != null && !parentUuid.isBlank();
 
-        // ---------------- STEP 4: Run 3 tasks in parallel ----------------
+        // STEP 4: Run 3 tasks in parallel
         CompletableFuture<Void> addressFuture = CompletableFuture.runAsync(() -> {
             try {
-                // calling address service
-                onePamRepository.createPostalAddress(childUuid, orgNumber).get();
+                onePamRepository.createPostalAddress(childUuid, orgNumber); // ✅ FIXED signature
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -126,38 +86,23 @@ public class OrganisationUnitService {
 
         if (hasParent) {
             hierarchyFuture = CompletableFuture.runAsync(() -> {
-                createOrganisationUnitHierarchy(childUuid, parentUuid);
+                try {
+                    createOrganisationUnitHierarchy(childUuid, parentUuid);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             });
         } else {
             log.info("No parent found → No hierarchy created for {}", childUuid);
             hierarchyFuture = CompletableFuture.completedFuture(null);
         }
 
-        // ---------------- STEP 5: Wait for all parallel tasks ----------------
         CompletableFuture.allOf(addressFuture, secondUpdateFuture, hierarchyFuture).join();
 
         log.info("Completed processOrganisationUnit for orgNumber: {}", orgNumber);
     }
 
-
-
-//---------------------------------------------------------------------------------------------------------------
-//    public void processOrganisationUnit(String orgNumber) {
-//        InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
-//        String uuid = response.getInvolvedPartyIdentifier();
-//        if (uuid == null || uuid.isBlank()) {
-//            log.warn("No involvedPartyIdentifier found in response");
-//            return;
-//        }
-
-//
-//    UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
-//        updateExternalIdentifier(uuid, updateRequest);
-//    }
-
-
-    //        ---------------------------------------------------------------------------------------------------------------
-
+    // ---------------------------------------------------------------------------------------------
 
     private InvolvedPartiesOrganisationUnitResponse createOrganisationUnit(String orgNumber) {
         List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
@@ -196,6 +141,8 @@ public class OrganisationUnitService {
         }
     }
 
+    // ---------------------------------------------------------------------------------------------
+
     private UpdateExternalIdentifierOrganisationUnitRequest buildUpdateRequest(String orgNumber) {
         List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
         Map<String, String> config = configs.isEmpty() ? Collections.emptyMap() : configs.get(0);
@@ -224,6 +171,8 @@ public class OrganisationUnitService {
                 .build();
     }
 
+    // ---------------------------------------------------------------------------------------------
+
     private void updateExternalIdentifier(String uuid, UpdateExternalIdentifierOrganisationUnitRequest request) {
         try {
             onePamRepository.updateExternalIdentifier(uuid, request).get();
@@ -234,6 +183,8 @@ public class OrganisationUnitService {
             throw new RuntimeException("Update failed", e);
         }
     }
+
+    // ---------------------------------------------------------------------------------------------
 
     private void createOrganisationUnitHierarchy(String childId, String parentId) {
         OrganisationUnitOrganisationRelationshipRequest request = OrganisationUnitOrganisationRelationshipRequest.builder()
@@ -252,7 +203,4 @@ public class OrganisationUnitService {
             throw new RuntimeException("Hierarchy creation failed", e);
         }
     }
-
 }
-
-
