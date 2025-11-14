@@ -1,0 +1,61 @@
+public void processOrganisationUnit(String orgNumber) {
+
+    // ------------------ STEP 1: Create Organisation Unit (sync) ------------------
+    InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+
+    String childUuid = response.getInvolvedPartyIdentifier();
+
+    if (childUuid == null || childUuid.isBlank()) {
+        log.warn("No child UUID (involvedPartyIdentifier) found in response for orgNumber: {}", orgNumber);
+        return;
+    }
+
+    // ------------------ STEP 2: First mandatory synchronous call ------------------
+    UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+
+    updateExternalIdentifier(childUuid, updateRequest);  // MUST be sync
+    log.info("✔ First sync updateExternalIdentifier completed for UUID: {}", childUuid);
+
+
+    // ------------------ STEP 3: Prepare parent UUID (Scenario D) ------------------
+    // You already have parentUuid from previous step or earlier processing
+    String parentUuid = getParentUuidFromCache(orgNumber); // <-- your logic
+
+    if (parentUuid == null || parentUuid.isBlank()) {
+        log.warn("Parent UUID not found for orgNumber: {}", orgNumber);
+        return;
+    }
+
+    // Build hierarchy payload NOW (no fetching required)
+    OrganisationUnitOrganisationRelationshipRequest hierarchyPayload =
+            OrganisationUnitOrganisationRelationshipRequest.builder()
+                    .childOrganisationUnitIdentifier(childUuid)
+                    .parentOrganisationIdentifier(parentUuid)
+                    .parentRoleReasonType("LEGAL")   // example
+                    .dataSource("ING")
+                    .build();
+
+
+    // ------------------ STEP 4: Run remaining 3 calls in PARALLEL ------------------
+
+    CompletableFuture<Void> addressFuture =
+            CompletableFuture.runAsync(() ->
+                    addressService.createPostalAddress(childUuid, orgNumber),
+                    executor
+            );
+
+    CompletableFuture<Void> hierarchyFuture =
+            onePamRepository.createOrganisationUnitHierarchy(hierarchyPayload)
+                    .thenAccept(res -> log.info("✔ Hierarchy created: child={} parent={}", childUuid, parentUuid));
+
+    CompletableFuture<Void> updateExtId2Future =
+            CompletableFuture.runAsync(() ->
+                    updateExternalIdentifier(childUuid, updateRequest),
+                    executor
+            );
+
+    // ------------------ STEP 5: Wait for ALL 3 parallel calls ------------------
+    CompletableFuture.allOf(addressFuture, hierarchyFuture, updateExtId2Future).join();
+
+    log.info("✔ All parallel calls completed successfully for child UUID: {}", childUuid);
+}
