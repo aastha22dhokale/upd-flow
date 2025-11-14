@@ -1,0 +1,43 @@
+public void processOrganisationUnit(String orgNumber) {
+
+    // ------------------ STEP 1: Create Organisation Unit (sync) ------------------
+    InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+    String uuid = response.getInvolvedPartyIdentifier();
+    if (uuid == null || uuid.isBlank()) {
+        log.warn("No involvedPartyIdentifier found in response");
+        return;
+    }
+
+    // ------------------ STEP 2: First mandatory synchronous call ------------------
+    UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+    updateExternalIdentifier(uuid, updateRequest);
+    log.info("✔ First sync updateExternalIdentifier completed for UUID: {}", uuid);
+
+
+    // ------------------ STEP 3: Trigger parallel calls ------------------
+    CompletableFuture<Void> externalIdentifierFuture =
+            onePamRepository.updateExternalIdentifier(uuid, updateRequest);
+
+    CompletableFuture<Void> postalAddressFuture =
+            CompletableFuture.supplyAsync(() -> {
+                addressService.createPostalAddress(uuid, orgNumber);
+                return null;
+            });
+
+    CompletableFuture<Void> hierarchyFuture =
+            CompletableFuture.supplyAsync(() -> {
+                // If parentId is from config or DB, change accordingly
+                String parentId = "PARENT-ID-TBD";  
+                createOrganisationUnitHierarchy(uuid, parentId);
+                return null;
+            });
+
+    // ------------------ STEP 4: Wait for ALL 3 parallel calls ------------------
+    CompletableFuture.allOf(
+            externalIdentifierFuture,
+            postalAddressFuture,
+            hierarchyFuture
+    ).join();
+
+    log.info("✔ All parallel calls completed for organisation unit UUID: {}", uuid);
+}
