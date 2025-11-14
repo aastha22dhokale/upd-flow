@@ -1,0 +1,50 @@
+public void processOrganisationUnit(String orgNumber, String parentUuid) {
+
+    // ---------------- STEP 1: Create child org unit ----------------
+    InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
+    String childUuid = response.getInvolvedPartyIdentifier();
+
+    if (childUuid == null || childUuid.isBlank()) {
+        log.warn("No involvedPartyIdentifier found in response");
+        return;
+    }
+
+    // ---------------- STEP 2: First mandatory sync update ----------------
+    UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
+    updateExternalIdentifier(childUuid, updateRequest);
+
+    // ---------------- STEP 3: Run parallel calls ONLY ----------------
+    CompletableFuture<Void> addressFuture = CompletableFuture.runAsync(() -> {
+        try {
+            onePamRepository.createPostalAddress(childUuid, orgNumber).get();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    });
+
+    CompletableFuture<Void> secondUpdateFuture = CompletableFuture.runAsync(() -> {
+        try {
+            updateExternalIdentifier(childUuid, updateRequest);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    });
+
+    CompletableFuture<Void> hierarchyFuture = CompletableFuture.runAsync(() -> {
+        try {
+            // Tasklet decides if parentUuid is null or not
+            if (parentUuid != null && !parentUuid.isBlank()) {
+                createOrganisationUnitHierarchy(childUuid, parentUuid);
+            } else {
+                log.info("Tasklet decided → No hierarchy created for {}", childUuid);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    });
+
+    // ---------------- STEP 4: Wait for all parallel tasks ----------------
+    CompletableFuture.allOf(addressFuture, secondUpdateFuture, hierarchyFuture).join();
+
+    log.info("Completed processOrganisationUnit for orgNumber: {}", orgNumber);
+}
