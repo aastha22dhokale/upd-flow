@@ -1,43 +1,109 @@
-public void processOrganisationUnit(String orgNumber) {
+package com.ing.datadist.configreader;
 
-    // ------------------ STEP 1: Create Organisation Unit (sync) ------------------
-    InvolvedPartiesOrganisationUnitResponse response = createOrganisationUnit(orgNumber);
-    String uuid = response.getInvolvedPartyIdentifier();
-    if (uuid == null || uuid.isBlank()) {
-        log.warn("No involvedPartyIdentifier found in response");
-        return;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+import java.util.Map;
+
+@Repository
+@Slf4j
+public class CofaceOpsConfigReader {
+
+    private static final String FETCH_BY_ORG_NUMBER_SQL =
+            "SELECT OPS_ORGANISATIONUNITNAME, OPS_NUMBER, ADR_POSTALADDRESS_CNTRYCD, " +
+                    "OPS_EXTID_DATEOFISSUE, OPS_EXTID_EXPIRYDATE, OPS_UUID " +
+                    "FROM DD_COFACEOPS_TBL WHERE OPS_NUMBER = ?";
+
+    private final JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    public CofaceOpsConfigReader(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
     }
 
-    // ------------------ STEP 2: First mandatory synchronous call ------------------
-    UpdateExternalIdentifierOrganisationUnitRequest updateRequest = buildUpdateRequest(orgNumber);
-    updateExternalIdentifier(uuid, updateRequest);
-    log.info("✔ First sync updateExternalIdentifier completed for UUID: {}", uuid);
+    public List<Map<String, String>> fetchByOrgNumber(String orgNumber) {
+        log.debug("Start of fetchByOrgNumber");
+        log.debug("Fetching organisation unit config for Org Number: '{}'", orgNumber);
 
+        List<Map<String, String>> results = jdbcTemplate.query(
+                FETCH_BY_ORG_NUMBER_SQL,
+                new Object[]{orgNumber},
+                new OrganisationUnitRowMapper()
+        );
 
-    // ------------------ STEP 3: Trigger parallel calls ------------------
-    CompletableFuture<Void> externalIdentifierFuture =
-            onePamRepository.updateExternalIdentifier(uuid, updateRequest);
+        log.debug("Fetched {} record(s) from DD_COFACEOPS_TBL by Org Number", results.size());
+        results.forEach(row -> log.debug("Row: {}", row));
+        log.debug("End of fetchByOrgNumber");
+        return results;
+    }
+}
+package com.ing.datadist.api.model;
 
-    CompletableFuture<Void> postalAddressFuture =
-            CompletableFuture.supplyAsync(() -> {
-                addressService.createPostalAddress(uuid, orgNumber);
-                return null;
-            });
+import lombok.*;
 
-    CompletableFuture<Void> hierarchyFuture =
-            CompletableFuture.supplyAsync(() -> {
-                // If parentId is from config or DB, change accordingly
-                String parentId = "PARENT-ID-TBD";  
-                createOrganisationUnitHierarchy(uuid, parentId);
-                return null;
-            });
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Generated
+public class OrganisationUnitOrganisationRelationshipRequest {
+    private String childOrganisationUnitIdentifier;
+    private String parentOrganisationIdentifier;
+    private String parentRoleReasonType;
+    private String dataSource;
+}
+package com.ing.datadist.api.model;
 
-    // ------------------ STEP 4: Wait for ALL 3 parallel calls ------------------
-    CompletableFuture.allOf(
-            externalIdentifierFuture,
-            postalAddressFuture,
-            hierarchyFuture
-    ).join();
+import lombok.*;
+import java.time.LocalDateTime;
 
-    log.info("✔ All parallel calls completed for organisation unit UUID: {}", uuid);
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Generated
+public class OrganisationUnitOrganisationRelationshipResponse {
+    private Relationship relationship;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Generated
+    public static class Relationship {
+        private String identifier;
+        private Child child;
+        private Parent parent;
+        private String parentRoleType;
+        private Double ownershipPercentage;
+        private String parentRoleReasonType;
+        private Boolean legacyRelationship;
+        private LocalDateTime effectiveDate;
+        private LocalDateTime endDate;
+        private String dataSource;
+        private String lastUpdateUser;
+        private LocalDateTime lastUpdateDate;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Generated
+    public static class Child {
+        private String identifier;
+        private String type;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Generated
+    public static class Parent {
+        private String identifier;
+        private String type;
+    }
 }
