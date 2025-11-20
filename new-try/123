@@ -1,0 +1,180 @@
+wrong:
+4. UpdateOrganisationUnitService
+You will REMOVE all postal address update logic from here.
+Postal update should happen only in AddressService, not here.
+So simply delete or comment out this block:
+onePamRepository.updatePostalAddress(...)
+
+all update calls will happen only in updateorganisationunitservice nowhere else
+
+
+ans 1:
+Involved Party API
+
+Share
+View in Console
+Back to API details
+Close a postal address of an Involved Party
+post
+/v5/involved-parties/{uuid}/postal-addresses/{postalAddressUsageType}/close
+
+🏷️ PostalAddresses
+
+Closes an active postal address of an Involved Party.
+
+header params
+X-ING-LastUpdateUser string required
+The LastUpdateUser
+
+path params
+uuid string required
+UUID of an Involved party.
+
+postalAddressUsageType string required
+postal address usage type.
+
+Responses
+
+200
+
+400
+
+404
+
+500
+200 OK
+
+
+ans 2:
+Subscribe
+OpenApiDocument
+P00007
+OAS 3
+Involved Party API
+
+Share
+View in Console
+Back to API details
+Update a postal address of an Involved Party
+patch
+/v5/involved-parties/{uuid}/postal-addresses/{postalAddressUsageType}
+
+🏷️ PostalAddresses
+
+This endpoints allows updating only active (current) postal address. It is only possible to update lastVerificationDate, endDate, and deliveryFailureReasonType. When updating an active postal address, and a future postal address of the same usage type exists for the same party, the endDate of the active postal address does not exceed the effective date of the future postal address.
+
+header params
+X-ING-LastUpdateUser string required
+User identifies the user; system; or process, who last updated the instance of a data object.
+
+path params
+uuid string required
+UUID of an Involved party.
+
+postalAddressUsageType string required
+Distinguishes between Postal Address types according to their usage.
+
+Request body
+The address attributes to update
+
+
+application/json
+
+Schema
+Examples
+▾
+object
+lastVerificationDate string (date-time)
+timestamp
+
+example: 2023-05-03T10:11:12.999Z
+endDate string (date-time)
+timestamp
+
+example: 2050-12-12T23:59:59.999+02:00
+deliveryFailureReasonType string
+example: ADR_NOT_EXST
+Responses
+
+200
+
+400
+
+404
+
+500
+200 OK
+
+
+application/json
+
+Schema
+Examples
+▾
+object
+▾
+postalAddress object
+postalAddressUsageType string
+example: RSDNT_ADR
+countryCode string
+example: IT
+countryRegionCode string
+example: IT-RM
+districtName string
+example: Zuidoost
+cityName string
+example: ROMA
+cityAreaName string
+example: Fratton
+regionName string
+example: Greater New York
+postalCode string
+example: 808
+streetName string
+example: Rodeo Drive
+houseNumber string
+example: 123
+houseNumberAddition string
+example: A
+buildingName string
+example: White House
+deliveryInformation string
+example: Watch out for the angry dog
+floor string
+example: 5
+locationUnitNumber string
+example: 910
+departmentName string
+example: Retail department
+subdepartmentName string
+example: Electronics
+poBoxNumber string
+example: 123
+streetType string
+example: ES_CALLE
+unstructuredAddressLine1 string
+example: Tempura Road
+unstructuredAddressLine2 string
+example: Big house on the hill
+unstructuredAddressLine3 string
+example: Third house from the right
+deliveryFailureReasonType string
+example: ADR_NOT_EXST
+dataSource string
+example: FOS_IT
+lastUpdateUser string
+example: OnePam
+lastUpdateDate string
+example: 2021-04-27T09:11:11.111Z
+effectiveDate string
+example: 2020-10-10T08:11:12.345Z
+lastVerificationDate string
+example: 2023-05-03T10:11:12.999Z
+endDate string
+example: 2050-12-12T21:59:59.999Z
+▾
+_links object
+▾
+self object
+href string
+example: https://(hostname):(port)/v5/involved-parties/a15f4243-e38b-4d96-af99-9c40c8dd08ab/post-addresses
