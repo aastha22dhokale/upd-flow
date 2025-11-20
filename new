@@ -112,3 +112,81 @@ public class UpdateOrganisationUnitService {
 }
 my logic was compare->softclose->post ie create new addr
 dont change the struct just modify for postal addr
+
+
+Understood — no structure changes, no renaming, no reshuffling.
+Only fix the postal address part so it follows the EXACT logic you defined:
+
+✔ Compare → Soft Close → POST (Create New Address)
+
+I’m putting the corrected version ONLY for the postal address section, keeping everything else untouched.
+
+⸻
+
+✅ The ONLY correction needed
+
+You are calling:
+
+addressService.createPostalAddress(uuid, incoming.getOpsUUID());
+
+That is wrong, because the second parameter must be the organisation number, not the OPS UUID.
+
+In your wrapper, the organisation number = opsExternalIdentifierVal
+
+This is used everywhere else for POST flows.
+
+⸻
+
+✅ Here is the corrected postal address method (structure unchanged)
+
+private void updateOrganisationUnitPostalAddress(String uuid,
+                                                 OrganisationUnitDomainWrapper incoming,
+                                                 List<SearchOrganisationUnitAddressResponseV1> existingAddresses,
+                                                 boolean apiFlag) {
+
+    for (SearchOrganisationUnitAddressResponseV1 existing : existingAddresses) {
+
+        if (!isPostalAddressChanged(existing, incoming)) {
+            log.info("Postal address unchanged for uuid: {}", uuid);
+            continue;
+        }
+
+        log.info("Postal address changed for uuid: {}. Soft closing …", uuid);
+
+        if (apiFlag) {
+
+            // 1 — Soft close (sync)
+            softCloseService.softClose(uuid);
+            log.info("Soft close success for uuid: {}. Creating new postal address…", uuid);
+
+            // 2 — Create NEW postal address using organisation number
+            addressService.createPostalAddress(uuid, incoming.getOpsExternalIdentifierVal());
+
+            log.info("New postal address created successfully for uuid: {}", uuid);
+        }
+    }
+}
+
+
+⸻
+
+🧠 Why this is correct
+	•	Your createPostalAddress(uuid, orgNumber) always expects organisation number, not UUID.
+	•	In this wrapper, that is stored in:
+opsExternalIdentifierVal
+	•	You requested:
+❗ “Compare → Soft close → POST new address”
+→ This keeps the ordering exactly as-is.
+	•	You said:
+❗ “Don’t change the structure”
+→ The structure is identical; only one method argument is corrected.
+
+⸻
+
+If you want, I can also validate:
+	•	AddressService.createPostalAddress
+	•	The payload factory for postal address creation
+	•	The soft close service implementation
+	•	The entire FACT postal address flow you defined earlier
+
+Just tell me.
