@@ -1,117 +1,114 @@
-[INFO] 1 error
-[INFO] -------------------------------------------------------------
-[INFO] ------------------------------------------------------------------------
-[INFO] Reactor Summary for DataDistributorAPIService 1.0.0:
-[INFO]
-[INFO] DataDistributorAPIService .......................... SUCCESS [ 11.609 s]
-[INFO] DataDistributorAPI-conf ............................ SUCCESS [  1.143 s]
-[INFO] DataDistribution ................................... FAILURE [ 15.449 s]
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD FAILURE
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time:  28.796 s
-[INFO] Finished at: 2025-11-20T19:01:56+05:30
-[INFO] ------------------------------------------------------------------------
-[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure
-[ERROR] /C:/Users/UU47VT/cud-II/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/payload/PayloadFactory.java:[41,17] cannot find symbol
-[ERROR]   symbol:   method streetName(java.lang.String)
-[ERROR]   location: class com.ing.datadist.api.model.UpdatePostalAddressV5Request.UpdatePostalAddressV5RequestBuilder
-[ERROR]
-[ERROR] -> [Help 1]
-[ERROR]
-[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
-[ERROR] Re-run Maven using the -X switch to enable full debug logging.
-[ERROR]
-[ERROR] For more information about the errors and possible solutions, please read the following articles:
-[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
-[ERROR]
-[ERROR] After correcting the problems, you can resume the build with the command
-[ERROR]   mvn <args> -rf :DataDistribution
-PS C:\Users\UU47VT\cud-II\P33558-DataDistributorAPI> 
-
-
-package com.ing.datadist.api.payload;
+package com.ing.datadist.api.service;
 
 import com.ing.datadist.api.model.*;
-
 import com.ing.datadist.domain.OrganisationUnitDomainWrapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Service;
+import com.ing.datadist.api.payload.PayloadFactory;
 
-import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Objects;
 
-import java.time.format.DateTimeFormatter;
+@Service
+@Slf4j
+public class UpdateOrganisationUnitService {
 
-public class PayloadFactory {
+    private final OnePamRepository onePamRepository;
+    private final AddressService addressService;
+    private final SoftClosePostalAddressService softCloseService;
 
-    // NAME UPDATE
-
-    public static UpdateOrganisationUnitNameV5Request buildUpdateNamePayload(
-
-            OrganisationUnitDomainWrapper wrapper) {
-
-        return UpdateOrganisationUnitNameV5Request.builder()
-
-                .organisationUnitName(wrapper.getOrganisationUnitName())
-
-                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-
-                .dataSource(wrapper.getRecordActionType())
-
-                .build();
-
+    public UpdateOrganisationUnitService(OnePamRepository onePamRepository,
+                                         AddressService addressService,
+                                         SoftClosePostalAddressService softCloseService) {
+        this.onePamRepository = onePamRepository;
+        this.addressService = addressService;
+        this.softCloseService = softCloseService;
     }
 
 
-    // POSTAL ADDRESS UPDATE (PATCH SOFT CLOSE)
+    public void updateOrganisationUnit(OrganisationUnitDomainWrapper wrapper,
+                                       SearchInvolvedPartiesResponseV1 response,
+                                       @NonNull Boolean apiFlag) throws Exception {
 
-    public static UpdatePostalAddressV5Request buildUpdatePostalPayload(
+        String uuid = wrapper.getOpsUUID();
+        List<SearchOrganisationUnitResponseV1> organisationUnits = response.getOrganisationUnits();
 
-            OrganisationUnitDomainWrapper wrapper) {
+        for (SearchOrganisationUnitResponseV1 organisationUnit : organisationUnits) {
+            List<SearchOrganisationUnitNameResponseV1> organisationUnitNames = organisationUnit.getOrganisationUnitNames();
+            List<SearchOrganisationUnitAddressResponseV1> postalAddresses = organisationUnit.getPostalAddresses();
+            List<SearchOrganisationUnitDigitalAddressesV1> digitalAddresses = organisationUnit.getDigitalAddresses();
 
-        return UpdatePostalAddressV5Request.builder()
-
-                .streetName(wrapper.getPostalAddressStreetNm())
-
-                .houseNumber(wrapper.getPostalAddressHouseNum())
-
-                .houseNumberAddition(wrapper.getPostalAddressHouseAdd())
-
-                .postalCode(wrapper.getPostalAddressPostalCd())
-
-                .cityName(wrapper.getPostalAddressCityName())
-
-                .countryCode(wrapper.getPostalAddressCntryCd())
-
-                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-
-                .dataSource(wrapper.getRecordActionType())
-
-                .build();
-
+            updateOrganisationUnitName(uuid, wrapper, organisationUnitNames, apiFlag);
+            updateOrganisationUnitPostalAddress(uuid, wrapper, postalAddresses, apiFlag);
+            updateOrganisationUnitDigitalAddressI(uuid, wrapper, digitalAddresses, apiFlag);
+        }
     }
 
-
-    // DIGITAL ADDRESS UPDATE
-
-    public static UpdateDigitalAddressV5Request buildUpdateDigitalPayload(
-
-            OrganisationUnitDomainWrapper wrapper) {
-
-        return UpdateDigitalAddressV5Request.builder()
-
-                .fullDigitalAddress(wrapper.getDigitalAddrEmail())
-
-                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-
-                .endDate("2050-12-12T23:59:59.999+02:00")
-
-                .deliveryFailureReasonType("ADR_NOT_EXST")
-
-                .dataSource(wrapper.getRecordActionType())
-
-                .build();
-
+    private void updateOrganisationUnitName(String uuid,
+                                    OrganisationUnitDomainWrapper wrapper,
+                                    List<SearchOrganisationUnitNameResponseV1> names,
+                                    boolean apiFlag) {
+        for (SearchOrganisationUnitNameResponseV1 name : names) {
+            if (!Objects.equals(name.getOrganisationUnitName(), wrapper.getOrganisationUnitName())) {
+                log.info("Name changed for uuid:{} old:'{}' new:'{}'",
+                        uuid, name.getOrganisationUnitName(), wrapper.getOrganisationUnitName());
+                if (apiFlag) {
+                    onePamRepository.updateOrganisationUnitName(
+                            PayloadFactory.buildUpdateNamePayload(wrapper), uuid, "OU_NM"
+                    );
+                }
+            }
+        }
     }
 
+    private void updateOrganisationUnitPostalAddress(String uuid,
+                                         OrganisationUnitDomainWrapper incoming,
+                                         List<SearchOrganisationUnitAddressResponseV1> existingAddresses,
+                                         boolean apiFlag) {
+        for (SearchOrganisationUnitAddressResponseV1 existing : existingAddresses) {
+            if (!isPostalAddressChanged(existing, incoming)) {
+                log.info("Postal address unchanged for uuid: {}", uuid);
+                continue;
+            }
+
+            log.info("Postal address changed for uuid: {}. Soft closing …", uuid);
+
+            if (apiFlag) {
+                softCloseService.softClose(uuid);
+                log.info("Soft close success for uuid: {}. Creating new postal address…", uuid);
+                addressService.createPostalAddress(uuid, incoming.getOpsUUID());
+                log.info("New postal address created successfully for uuid: {}", uuid);
+            }
+        }
+    }
+
+    private boolean isPostalAddressChanged(SearchOrganisationUnitAddressResponseV1 e,
+                                           OrganisationUnitDomainWrapper w) {
+        return !(Objects.equals(e.getStreetName(), w.getPostalAddressStreetNm()) &&
+                Objects.equals(e.getHouseNumber(), w.getPostalAddressHouseNum()) &&
+                Objects.equals(e.getHouseNumberAddition(), w.getPostalAddressHouseAdd()) &&
+                Objects.equals(e.getPostalCode(), w.getPostalAddressPostalCd()) &&
+                Objects.equals(e.getCityName(), w.getPostalAddressCityName()) &&
+                Objects.equals(e.getCountryCode(), w.getPostalAddressCntryCd()));
+    }
+
+    private void updateOrganisationUnitDigitalAddressI(String uuid,
+                                              OrganisationUnitDomainWrapper wrapper,
+                                              List<SearchOrganisationUnitDigitalAddressesV1> digitalAddresses,
+                                              boolean apiFlag) {
+        for (SearchOrganisationUnitDigitalAddressesV1 digital : digitalAddresses) {
+            if (!Objects.equals(digital.getFullDigitalAddress(), wrapper.getDigitalAddrEmail())) {
+                log.info("Digital address changed for uuid:{} old:'{}' new:'{}'",
+                        uuid, digital.getFullDigitalAddress(), wrapper.getDigitalAddrEmail());
+                if (apiFlag) {
+                    onePamRepository.updateDigitalAddress(
+                            PayloadFactory.buildUpdateDigitalPayload(wrapper), uuid, "PSN_EMAIL"
+                    );
+                }
+            }
+        }
+    }
 }
-
-
+my logic was compare->softclose->post ie create new addr
+dont change the struct just modify for postal addr
