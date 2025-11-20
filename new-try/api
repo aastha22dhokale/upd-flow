@@ -1,0 +1,543 @@
+FOR MY PROJECT ONLY ORGANISATION_UNIT IS CONSIDERED KEEP THT IN MIND
+Involved Party API
+
+Share
+View in Console
+Back to API details
+Retrieve involved party
+get
+
+
+Retrieve the involved party by its unique id. It returns all available properties directly related to the party/individual/organisation/organisation Unit as well as a list of its names, internal identifiers, addresses (digital and postal), involvedPartyGroups and managingEntities. The party returned is either an individual, organisation or organisationUnit. In current version of YAML, the swagger 2.0 version is used so it is not possible to specify a "oneOf". ''''Next to the Esperanto schema "InvolvedParty" and either "individual" or "organisation" or "organisationUnit" also the related "PostalAddress", "DigitalAddress", "InternalIdentifier" instances are returned.
+
+path params
+uuid string required
+UUID of an Involved party
+
+Responses
+
+200
+
+400
+
+404
+
+500
+200 OK
+
+
+application/json
+
+Schema
+Examples
+This example has been generated based on the body schema.
+
+{
+  "individual": {
+    "involvedPartyIdentifier": "ec742218-a3a4-4c29-a5c3-b17fdd419880",
+    "involvedPartyType": "OU",
+    "dataSource": "BOS",
+    "logicalDataDomain": "ING_NL",
+    "countryOfResidence": "NL",
+    "preferredLanguage": "nl",
+    "financialLegalStatusType": "IN_ADMIN",
+    "channelOfEntry": "DGTL_CHAN",
+    "effectiveDate": "2020-10-10T08:11:12.345Z",
+    "endDate": "2050-12-12T21:59:59.999Z",
+    "dateCreated": "2020-10-10T08:11:12.345Z",
+    "dateInactivated": "2021-04-27T09:11:11.111Z",
+    "lastUpdateUser": "IN_ADMIN",
+    "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+    "involvedPartyInternalIdentifiers": [
+      {
+        "involvedPartyInternalIdentifierType": "UUID",
+        "involvedPartyInternalIdentifierValue": "ee5cf2f8-4286-49b6-9134-1e3d055cd597",
+        "lastUpdateUser": "theForge",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z"
+      }
+    ],
+    "postalAddresses": [
+      {
+        "postalAddressUsageType": "RSDNT_ADR",
+        "countryCode": "IT",
+        "countryRegionCode": "IT-RM",
+        "districtName": "Zuidoost",
+        "cityName": "ROMA",
+        "cityAreaName": "Fratton",
+        "regionName": "Greater New York",
+        "postalCode": "808",
+        "streetName": "Rodeo Drive",
+        "houseNumber": "123",
+        "houseNumberAddition": "A",
+        "buildingName": "White House",
+        "deliveryInformation": "Watch out for the angry dog",
+        "floor": "5",
+        "locationUnitNumber": "910",
+        "departmentName": "Retail department",
+        "subdepartmentName": "Electronics",
+        "poBoxNumber": "123",
+        "streetType": "ES_CALLE",
+        "unstructuredAddressLine1": "Tempura Road",
+        "unstructuredAddressLine2": "Big house on the hill",
+        "unstructuredAddressLine3": "Third house from the right",
+        "deliveryFailureReasonType": "ADR_NOT_EXST",
+        "dataSource": "FOS_IT",
+        "lastUpdateUser": "OnePam",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "lastVerificationDate": "2023-05-03T10:11:12.999Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "digitalAddresses": [
+      {
+        "digitalAddressType": "EMAIL_ADR",
+        "digitalAddressUsageType": "PSN_EMAIL",
+        "fullDigitalAddress": "hello@ing.com",
+        "deliveryFailureReasonType": "ADR_NOT_EXST",
+        "dataSource": "FOS_IT",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z",
+        "lastUpdateUser": "OnePam",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z"
+      }
+    ],
+    "cityOfBirth": "Amsterdam",
+    "countryOfBirth": "NL",
+    "dateOfBirth": "1969-07-20",
+    "dateOfDeath": "2009-06-25",
+    "gender": "ML",
+    "employmentStatusType": "STDNT",
+    "individualLifeCycleStatusType": "DSCD_IDV",
+    "maritalStatus": "DI",
+    "notificationDateOfDeath": "2009-07-07",
+    "legalCompetencyStatusType": "EMPWR_MNR",
+    "dateOfBirthQualityIndicator": "COMPL",
+    "individualName": {
+      "lastName": "Bern",
+      "lastNamePrefix": "V004",
+      "lastNamePrefixValue": "Van",
+      "givenName": "van Duijn",
+      "firstName1": "Tom",
+      "firstName2": "Tim",
+      "firstName3": "Ted",
+      "firstName4": "Todd",
+      "nameInitials": "Thj",
+      "nickName": "Tobie",
+      "secondLastName": "groot",
+      "birthLastName": "klein",
+      "partnerLastName": "bakker",
+      "partnerLastNamePrefix": "V008",
+      "partnerLastNamePrefixValue": "van de",
+      "nameSuffix": "MSc",
+      "salutation": "MR",
+      "salutationValue": "Dhr",
+      "title1": "PRINS",
+      "title1Value": "prins",
+      "title2": "DRS",
+      "title2Value": "drs",
+      "title3": "H_R_H",
+      "title3Value": "H.R.H.",
+      "dataSource": "FOS_IT",
+      "lastUpdateUser": "OnePam",
+      "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+      "effectiveDate": "2020-10-10T08:11:12.345Z",
+      "endDate": "2050-12-12T21:59:59.999Z"
+    },
+    "individualFormattedNames": [
+      {
+        "individualNameType": "CORRPDC_NM",
+        "individualNameValue": "Michiel Van Buren",
+        "dataSource": "USR_M_DE",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z",
+        "lastUpdateUser": "OnePAM",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z"
+      }
+    ],
+    "involvedPartyGroups": [
+      {
+        "involvedPartyGroupType": "SVC_SEGM_NL",
+        "involvedPartyGroupCode": "200",
+        "lastUpdateUser": "string",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "managingEntities": [
+      {
+        "managingEntityType": "MANAGING_ENTITIES_CODE_NL",
+        "managingEntityCode": "380",
+        "lastUpdateUser": "string",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "_links": {
+      "self": { "href": "https://(hostname):(port)/v6/involved-parties/{uuid}" }
+    }
+  },
+  "organisation": {
+    "involvedPartyIdentifier": "ec742218-a3a4-4c29-a5c3-b17fdd419880",
+    "dataSource": "BOS",
+    "logicalDataDomain": "ING_NL",
+    "countryOfResidence": "NL",
+    "preferredLanguage": "nl",
+    "financialLegalStatusType": "IN_ADMIN",
+    "channelOfEntry": "DGTL_CHAN",
+    "effectiveDate": "2020-10-10T08:11:12.345Z",
+    "endDate": "2050-12-12T21:59:59.999Z",
+    "dateCreated": "2020-10-10T08:11:12.345Z",
+    "dateInactivated": "2021-04-27T09:11:11.111Z",
+    "lastUpdateUser": "IN_ADMIN",
+    "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+    "involvedPartyInternalIdentifiers": [
+      {
+        "involvedPartyInternalIdentifierType": "UUID",
+        "involvedPartyInternalIdentifierValue": "ee5cf2f8-4286-49b6-9134-1e3d055cd597",
+        "lastUpdateUser": "theForge",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z"
+      }
+    ],
+    "postalAddresses": [
+      {
+        "postalAddressUsageType": "RSDNT_ADR",
+        "countryCode": "IT",
+        "countryRegionCode": "IT-RM",
+        "districtName": "Zuidoost",
+        "cityName": "ROMA",
+        "cityAreaName": "Fratton",
+        "regionName": "Greater New York",
+        "postalCode": "808",
+        "streetName": "Rodeo Drive",
+        "houseNumber": "123",
+        "houseNumberAddition": "A",
+        "buildingName": "White House",
+        "deliveryInformation": "Watch out for the angry dog",
+        "floor": "5",
+        "locationUnitNumber": "910",
+        "departmentName": "Retail department",
+        "subdepartmentName": "Electronics",
+        "poBoxNumber": "123",
+        "streetType": "ES_CALLE",
+        "unstructuredAddressLine1": "Tempura Road",
+        "unstructuredAddressLine2": "Big house on the hill",
+        "unstructuredAddressLine3": "Third house from the right",
+        "deliveryFailureReasonType": "ADR_NOT_EXST",
+        "dataSource": "FOS_IT",
+        "lastUpdateUser": "OnePam",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "lastVerificationDate": "2023-05-03T10:11:12.999Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "digitalAddresses": [
+      {
+        "digitalAddressType": "EMAIL_ADR",
+        "digitalAddressUsageType": "PSN_EMAIL",
+        "fullDigitalAddress": "hello@ing.com",
+        "deliveryFailureReasonType": "ADR_NOT_EXST",
+        "dataSource": "FOS_IT",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z",
+        "lastUpdateUser": "OnePam",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z"
+      }
+    ],
+    "involvedPartyType": "ORG",
+    "countryOfIncorporation": "NL",
+    "dateOfFoundation": "1985-10-19",
+    "legalForm": "BE_303",
+    "organisationLifeCycleStatusType": "FORM_ORG",
+    "businessClosedDownDate": "2014-01-12",
+    "organisationNames": [
+      {
+        "organisationNameType": "LGL_NM",
+        "organisationName": "ACME",
+        "dataSource": "FOS_IT",
+        "lastUpdateUser": "OnePam",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "involvedPartyGroups": [
+      {
+        "involvedPartyGroupType": "SVC_SEGM_NL",
+        "involvedPartyGroupCode": "200",
+        "lastUpdateUser": "string",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "managingEntities": [
+      {
+        "managingEntityType": "MANAGING_ENTITIES_CODE_NL",
+        "managingEntityCode": "380",
+        "lastUpdateUser": "string",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "_links": {
+      "self": { "href": "https://(hostname):(port)/v6/involved-parties/{uuid}" }
+    }
+  },
+  "organisationUnit": {
+    "involvedPartyIdentifier": "ec742218-a3a4-4c29-a5c3-b17fdd419880",
+    "dataSource": "BOS",
+    "logicalDataDomain": "ING_NL",
+    "countryOfResidence": "NL",
+    "preferredLanguage": "nl",
+    "financialLegalStatusType": "IN_ADMIN",
+    "channelOfEntry": "DGTL_CHAN",
+    "effectiveDate": "2020-10-10T08:11:12.345Z",
+    "endDate": "2050-12-12T21:59:59.999Z",
+    "dateCreated": "2020-10-10T08:11:12.345Z",
+    "dateInactivated": "2021-04-27T09:11:11.111Z",
+    "lastUpdateUser": "IN_ADMIN",
+    "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+    "involvedPartyInternalIdentifiers": [
+      {
+        "involvedPartyInternalIdentifierType": "UUID",
+        "involvedPartyInternalIdentifierValue": "ee5cf2f8-4286-49b6-9134-1e3d055cd597",
+        "lastUpdateUser": "theForge",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z"
+      }
+    ],
+    "postalAddresses": [
+      {
+        "postalAddressUsageType": "RSDNT_ADR",
+        "countryCode": "IT",
+        "countryRegionCode": "IT-RM",
+        "districtName": "Zuidoost",
+        "cityName": "ROMA",
+        "cityAreaName": "Fratton",
+        "regionName": "Greater New York",
+        "postalCode": "808",
+        "streetName": "Rodeo Drive",
+        "houseNumber": "123",
+        "houseNumberAddition": "A",
+        "buildingName": "White House",
+        "deliveryInformation": "Watch out for the angry dog",
+        "floor": "5",
+        "locationUnitNumber": "910",
+        "departmentName": "Retail department",
+        "subdepartmentName": "Electronics",
+        "poBoxNumber": "123",
+        "streetType": "ES_CALLE",
+        "unstructuredAddressLine1": "Tempura Road",
+        "unstructuredAddressLine2": "Big house on the hill",
+        "unstructuredAddressLine3": "Third house from the right",
+        "deliveryFailureReasonType": "ADR_NOT_EXST",
+        "dataSource": "FOS_IT",
+        "lastUpdateUser": "OnePam",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "lastVerificationDate": "2023-05-03T10:11:12.999Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "digitalAddresses": [
+      {
+        "digitalAddressType": "EMAIL_ADR",
+        "digitalAddressUsageType": "PSN_EMAIL",
+        "fullDigitalAddress": "hello@ing.com",
+        "deliveryFailureReasonType": "ADR_NOT_EXST",
+        "dataSource": "FOS_IT",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z",
+        "lastUpdateUser": "OnePam",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z"
+      }
+    ],
+    "involvedPartyType": "OU",
+    "organisationUnitStructureType": "DEPT",
+    "organisationUnitNames": [
+      {
+        "organisationUnitNameType": "OU_NM",
+        "organisationUnitName": "ABC corporation",
+        "dataSource": "FOS_IT",
+        "lastUpdateUser": "OnePam",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "involvedPartyGroups": [
+      {
+        "involvedPartyGroupType": "SVC_SEGM_NL",
+        "involvedPartyGroupCode": "200",
+        "lastUpdateUser": "string",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "managingEntities": [
+      {
+        "managingEntityType": "MANAGING_ENTITIES_CODE_NL",
+        "managingEntityCode": "380",
+        "lastUpdateUser": "string",
+        "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+        "effectiveDate": "2020-10-10T08:11:12.345Z",
+        "endDate": "2050-12-12T21:59:59.999Z"
+      }
+    ],
+    "_links": {
+      "self": { "href": "https://(hostname):(port)/v6/involved-parties/{uuid}" }
+    }
+  }
+}
+
+About Touchpoint 
+Become a partner 
+Terms & Conditions
+
+Subscribe
+OpenApiDocument
+P00007
+OAS 3
+Involved Party API
+
+Share
+View in Console
+Back to API details
+Update a postal address of an Involved Party
+patch
+/v5/involved-parties/{uuid}/postal-addresses/{postalAddressUsageType}
+
+🏷️ PostalAddresses
+
+This endpoints allows updating only active (current) postal address. It is only possible to update lastVerificationDate, endDate, and deliveryFailureReasonType. When updating an active postal address, and a future postal address of the same usage type exists for the same party, the endDate of the active postal address does not exceed the effective date of the future postal address.
+
+header params
+X-ING-LastUpdateUser string required
+User identifies the user; system; or process, who last updated the instance of a data object.
+
+path params
+uuid string required
+UUID of an Involved party.
+
+postalAddressUsageType string required
+Distinguishes between Postal Address types according to their usage.
+
+Request body
+The address attributes to update
+
+
+application/json
+
+Schema
+Examples
+This example has been generated based on the body schema.
+
+{
+  "lastVerificationDate": "2023-05-03T10:11:12.999Z",
+  "endDate": "2050-12-12T23:59:59.999+02:00",
+  "deliveryFailureReasonType": "ADR_NOT_EXST"
+}
+
+Responses
+
+200
+
+400
+
+404
+
+500
+200 OK
+
+
+application/json
+
+Schema
+Examples
+This example has been generated based on the body schema.
+
+{
+  "postalAddress": {
+    "postalAddressUsageType": "RSDNT_ADR",
+    "countryCode": "IT",
+    "countryRegionCode": "IT-RM",
+    "districtName": "Zuidoost",
+    "cityName": "ROMA",
+    "cityAreaName": "Fratton",
+    "regionName": "Greater New York",
+    "postalCode": "808",
+    "streetName": "Rodeo Drive",
+    "houseNumber": "123",
+    "houseNumberAddition": "A",
+    "buildingName": "White House",
+    "deliveryInformation": "Watch out for the angry dog",
+    "floor": "5",
+    "locationUnitNumber": "910",
+    "departmentName": "Retail department",
+    "subdepartmentName": "Electronics",
+    "poBoxNumber": "123",
+    "streetType": "ES_CALLE",
+    "unstructuredAddressLine1": "Tempura Road",
+    "unstructuredAddressLine2": "Big house on the hill",
+    "unstructuredAddressLine3": "Third house from the right",
+    "deliveryFailureReasonType": "ADR_NOT_EXST",
+    "dataSource": "FOS_IT",
+    "lastUpdateUser": "OnePam",
+    "lastUpdateDate": "2021-04-27T09:11:11.111Z",
+    "effectiveDate": "2020-10-10T08:11:12.345Z",
+    "lastVerificationDate": "2023-05-03T10:11:12.999Z",
+    "endDate": "2050-12-12T21:59:59.999Z"
+  },
+  "_links": {
+    "self": {
+      "href": "https://(hostname):(port)/v5/involved-parties/a15f4243-e38b-4d96-af99-9c40c8dd08ab/post-addresses"
+    }
+  }
+}
+
+
+Subscribe
+OpenApiDocument
+P00007
+OAS 3
+Involved Party API
+
+Share
+View in Console
+Back to API details
+Close a postal address of an Involved Party
+post
+/v5/involved-parties/{uuid}/postal-addresses/{postalAddressUsageType}/close
+
+🏷️ PostalAddresses
+
+Closes an active postal address of an Involved Party.
+
+header params
+X-ING-LastUpdateUser string required
+The LastUpdateUser
+
+path params
+uuid string required
+UUID of an Involved party.
+
+postalAddressUsageType string required
+postal address usage type.
+
+Responses
+
+200
+
+400
+
+404
+
+500
+200 OK
+
+
