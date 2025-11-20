@@ -1,19 +1,36 @@
+Nice — we’re implementing compare → soft-close → create only inside UpdateOrganisationUnitService and adding only the minimal repository + payload helpers needed. No extra files, no changes outside your project structure.
+
+Below are the full, ready-to-paste updated files. I kept style, imports and error handling consistent with your project.
+
+⸻
+
+1) UpdateOrganisationUnitService.java
+
+Replace the postal-address blocks in this file with the implementation below. It keeps the existing name/digital logic untouched and adds a single compare method (one method compares all postal fields) and the orchestration (soft-close → create).
+
 package com.ing.datadist.api.service;
+
 import com.ing.datadist.api.model.*;
 import com.ing.datadist.domain.OrganisationUnitDomainWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.lang.NonNull;
 import com.ing.datadist.api.payload.PayloadFactory;
+
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+
 @Service
 @Slf4j
 public class UpdateOrganisationUnitService {
     private final OnePamRepository onePamRepository;
+    private static final String POSTAL_USAGE_TYPE = "RSDNT_ADR";
+
     public UpdateOrganisationUnitService(OnePamRepository onePamRepository){
         this.onePamRepository = onePamRepository;
     }
+
     public void updateOrganisationUnit(OrganisationUnitDomainWrapper wrapper,
                                        SearchInvolvedPartiesResponseV1 response,
                                        @NonNull Boolean apiFlag) throws Exception {
@@ -23,6 +40,8 @@ public class UpdateOrganisationUnitService {
             List<SearchOrganisationUnitNameResponseV1> organisationUnitNames = organisationUnit.getOrganisationUnitNames();
             List<SearchOrganisationUnitAddressResponseV1> postalAddresses = organisationUnit.getPostalAddresses();
             List<SearchOrganisationUnitDigitalAddressesV1> digitalAddresses = organisationUnit.getDigitalAddresses();
+
+            // --- existing name logic (unchanged) ---
             for (SearchOrganisationUnitNameResponseV1 name : organisationUnitNames) {
                 if (Objects.equals(wrapper.getOrganisationUnitName(), name.getOrganisationUnitName())) {
                     log.info("Update organisationUnit name changed for uuid:{}  old:{} new:{}  ",
@@ -34,56 +53,40 @@ public class UpdateOrganisationUnitService {
                     }
                 }
             }
+
+            // --- NEW: postal compare -> soft-close -> create (all in one place) ---
             for (SearchOrganisationUnitAddressResponseV1 address : postalAddresses) {
-                if (Objects.equals(wrapper.getPostalAddressStreetNm(), address.getStreetName())) {
-                    log.info("Update organisationUnit StreetName changed for uuid:{}   old:{} new:{}  ",
-                            uuid, wrapper.getPostalAddressStreetNm(), address.getStreetName());
-                    if(apiFlag){
-                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
-                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
+                // Compare all postal fields in a single method
+                boolean changed = isPostalAddressChanged(address, wrapper);
+                if (changed) {
+                    log.info("Postal address change detected for uuid:{} - proceeding with soft-close + create", uuid);
+                    if (apiFlag) {
+                        try {
+                            // Soft-close existing postal address (POST .../close)
+                            onePamRepository.closePostalAddress(uuid, POSTAL_USAGE_TYPE).get();
+
+                            // Build create payload from wrapper and call create
+                            CreatePostalAddressRequest createPayload = PayloadFactory.buildCreatePostalPayload(wrapper);
+                            onePamRepository.createPostalAddress(uuid, createPayload).get();
+
+                            log.info("Postal address updated (soft-closed old, created new) for uuid: {}", uuid);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            log.error("Interrupted while updating postal address for uuid {}", uuid, ie);
+                            throw ie;
+                        } catch (ExecutionException ee) {
+                            log.error("Execution exception during postal address update for uuid {}", uuid, ee);
+                            throw new RuntimeException("Postal address update failed", ee);
+                        }
+                    } else {
+                        log.info("apiFlag is false — skipping actual postal API calls for uuid {}", uuid);
                     }
-                }
-                if (Objects.equals(wrapper.getPostalAddressHouseNum(), address.getHouseNumber())) {
-                    log.info("Update organisationUnit HouseNum changed for uuid:{}   old:{} new:{}  ",
-                            uuid, wrapper.getPostalAddressHouseNum(), address.getHouseNumber());
-                    if(apiFlag){
-                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
-                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
-                    }
-                }
-                if (Objects.equals(wrapper.getPostalAddressHouseAdd(), address.getHouseNumberAddition())) {
-                    log.info("Update organisationUnit HouseAdd changed for uuid:{}  old:{} new:{}  ",
-                            uuid, wrapper.getPostalAddressHouseAdd(), address.getHouseNumberAddition());
-                    if(apiFlag){
-                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
-                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
-                    }
-                }
-                if (Objects.equals(wrapper.getPostalAddressPostalCd(), address.getPostalCode())) {
-                    log.info("Update organisationUnit PostalCode changed for uuid:{}  old:{} new:{}  ",
-                            uuid, wrapper.getPostalAddressPostalCd(), address.getPostalCode());
-                    if(apiFlag){
-                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
-                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
-                    }
-                }
-                if (Objects.equals(wrapper.getPostalAddressCityName(), address.getCityName())) {
-                    log.info("Update organisationUnit CityName changed for uuid:{}  old:{} new:{}  ",
-                            uuid, wrapper.getPostalAddressCityName(), address.getCityName());
-                    if(apiFlag){
-                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
-                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
-                    }
-                }
-                if (Objects.equals(wrapper.getPostalAddressCntryCd(), address.getCountryCode())) {
-                    log.info("Update organisationUnit CountryCode changed for uuid:{}  old:{} new:{}  ",
-                            uuid, wrapper.getPostalAddressCntryCd(), address.getCountryCode());
-                    if(apiFlag){
-                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
-                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
-                    }
+                } else {
+                    log.info("No postal address change for uuid:{} - skipping", uuid);
                 }
             }
+
+            // --- existing digital logic (unchanged) ---
             for (SearchOrganisationUnitDigitalAddressesV1 digitalAddress : digitalAddresses) {
                 if (Objects.equals(wrapper.getDigitalAddrEmail(), digitalAddress.getFullDigitalAddress())) {
                     log.info("Update organisationUnit FullDigitalAddress changed for uuid:{}  old:{} new:{} ",
@@ -97,97 +100,171 @@ public class UpdateOrganisationUnitService {
             }
         }
     }
+
+    /**
+     * Single comparison method for postal address — compares the significant fields.
+     * Returns true if any field differs (i.e. update needed).
+     */
+    private boolean isPostalAddressChanged(SearchOrganisationUnitAddressResponseV1 existing,
+                                           OrganisationUnitDomainWrapper incomingWrapper) {
+        if (existing == null) return true;
+
+        // Compare a comprehensive set of fields. Add/remove fields according to mapping.
+        if (!Objects.equals(existing.getStreetName(), incomingWrapper.getPostalAddressStreetNm())) return true;
+        if (!Objects.equals(existing.getHouseNumber(), incomingWrapper.getPostalAddressHouseNum())) return true;
+        if (!Objects.equals(existing.getHouseNumberAddition(), incomingWrapper.getPostalAddressHouseAdd())) return true;
+        if (!Objects.equals(existing.getPostalCode(), incomingWrapper.getPostalAddressPostalCd())) return true;
+        if (!Objects.equals(existing.getCityName(), incomingWrapper.getPostalAddressCityName())) return true;
+        if (!Objects.equals(existing.getCountryCode(), incomingWrapper.getPostalAddressCntryCd())) return true;
+        if (!Objects.equals(existing.getBuildingName(), incomingWrapper.getPostalAddressBuildingNm())) return true; // if wrapper has it
+        if (!Objects.equals(existing.getUnstructuredAddressLine1(), incomingWrapper.getPostalAddressUnstructured1())) return true;
+        if (!Objects.equals(existing.getUnstructuredAddressLine2(), incomingWrapper.getPostalAddressUnstructured2())) return true;
+        if (!Objects.equals(existing.getUnstructuredAddressLine3(), incomingWrapper.getPostalAddressUnstructured3())) return true;
+        if (!Objects.equals(existing.getDeliveryInformation(), incomingWrapper.getPostalAddressDeliveryInfo())) return true;
+
+        // if reached here, no significant differences
+        return false;
+    }
 }
-package com.ing.datadist.api.payload;
 
-import com.ing.datadist.api.model.*;
+Notes on this file
+	•	It uses the SearchOrganisationUnitAddressResponseV1 existing object (from search response) for comparison — no PATCH GET is called here.
+	•	Calls onePamRepository.closePostalAddress(...) and onePamRepository.createPostalAddress(...) and blocks on .get() to ensure sequence.
+	•	isPostalAddressChanged(...) is a single method comparing all relevant fields (you can tweak fields later).
 
-import com.ing.datadist.domain.OrganisationUnitDomainWrapper;
+⸻
 
-import java.time.ZonedDateTime;
+2) OnePamRepository.java
 
-import java.time.format.DateTimeFormatter;
+Add the two methods below into your existing OnePamRepository class (paste them into the class with the other API methods). I matched your existing style and exceptions.
 
-public class PayloadFactory {
-    public static UpdateOrganisationUnitNameV5Request buildUpdateNamePayload(
-            OrganisationUnitDomainWrapper wrapper,
-            String newName
-    ) {
-        return UpdateOrganisationUnitNameV5Request.builder()
-                .organisationUnitName(newName != null ? newName : wrapper.getOrganisationUnitName())
-                .dataSource(wrapper.getRecordActionType())
-                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-                .build();
-    }
-    public static UpdatePostalAddressV5Request buildUpdatePostalPayload(
-            OrganisationUnitDomainWrapper wrapper
-    ) {
-        return UpdatePostalAddressV5Request.builder()
-                .lastVerificationDate("2023-05-03T10:11:12.999Z")
-                .endDate("2050-12-12T23:59:59.999+02:00")
-                .deliveryFailureReasonType("ADR_NOT_EXST")
-                .build();
-    }
-    public static UpdateDigitalAddressV5Request buildUpdateDigitalPayload(
-            OrganisationUnitDomainWrapper wrapper
-    ) {
-        return UpdateDigitalAddressV5Request.builder()
-                .fullDigitalAddress("hello@ing.com")   // TEMP CONSTANT
-                .deliveryFailureReasonType("ADR_NOT_EXST")
-                .dataSource("FOS_IT")
-                .effectiveDate("2020-10-10T10:11:12.345+02:00")
-                .endDate("2050-12-12T23:59:59.999+02:00")
-                .build();
-    }
-
-}
-package com.ing.datadist.api.utils;
-
-
-import jakarta.ws.rs.HttpMethod;
-import lombok.Generated;
-
-import static org.apache.commons.lang3.StringUtils.SPACE;
-
-@Generated
-public enum RegkeyEnum {
-    //OnePam endpoints
-    CREATE_INVOLVED_PARTY("CREATE_INVOLVED_PARTY", HttpMethod.POST, "https://api.ing.com/v5/involved-parties"),
-    UPDATE_EXTERNAL_IDENTIFIER("UPDATE_EXTERNAL_IDENTIFIER", HttpMethod.POST, "https://api.ing.com/v5/involved-parties/{uuid}/external-identifiers"),
-    CREATE_ORGANISATION_UNIT_HIERARCHY("CREATE_ORGANISATION_UNIT_HIERARCHY", HttpMethod.POST, "https://api.ing.com/v1/organisation-hierarchies/relationship"),
-    SEARCH_ORGANISATION_UNIT("SEARCH_ORGANISATION_UNIT", HttpMethod.POST, "https://api.ing.com/v1/partyandagreementsearch/involved-parties/search"),
-    UPDATE_INVOLVED_PARTY("UPDATE_INVOLVED_PARTY", HttpMethod.PATCH, "https://api.ing.com/v5/involved-parties/{uuid}"),
-    CLOSE_ORGANISATION_HIERARCHY_RELATIONSHIP("CLOSE_ORGANISATION_HIERARCHY_RELATIONSHIP", HttpMethod.POST, "https://api.ing.com/v1/organisation-hierarchies/relationship/{uuid}/close"),
-    UPDATE_ORGANISATION_UNIT_NAME("UPDATE_ORGANISATION_UNIT_NAME", HttpMethod.POST, "https://api.ing.com/v5/involved-parties/{uuid}/organisation-unit-names/{nameType}"),
-    CREATE_POSTAL_ADDRESS("CREATE_POSTAL_ADDRESS", HttpMethod.POST, "https://api.ing.com/v5/involved-parties/{uuid}/postal-addresses"),
-    UPDATE_POSTAL_ADDRESS("UPDATE_POSTAL_ADDRESS", HttpMethod.PATCH, "https://api.ing.com/v5/involved-parties/{uuid}/postal-addresses/{postalAddressUsageType}"),
-    UPDATE_DIGITAL_ADDRESS("UPDATE_DIGITAL_ADDRESS", HttpMethod.PATCH, "https://api.ing.com/v5/involved-parties/{uuid}/digital-addresses/{usageType}");
-
-
-
-    public final String label;
-    public final String method;
-    public final String endpoint;
-
-    RegkeyEnum(String label, String method, String endpoint) {
-        this.label = label;
-        this.method = method;
-        this.endpoint = endpoint;
+    /**
+     * Soft-close an active postal address for the given involved-party UUID and usageType.
+     * Calls:
+     * POST /v5/involved-parties/{uuid}/postal-addresses/{postalAddressUsageType}/close
+     */
+    public CompletableFuture<Void> closePostalAddress(String uuid, String usageType) {
+        try {
+            String url = RegkeyEnum.CLOSE_POSTAL_ADDRESS.resolveEndpoint(uuid, usageType);
+            log.info("Calling OnePAM API to close postal address for UUID: {} usageType: {}", uuid, usageType);
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Post())
+                    .withHeader("X-ING-LastUpdateUser", "IN_ADMIN")
+                    .build();
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                            return null;
+                        } else {
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.CLOSE_POSTAL_ADDRESS,
+                                    "Failed to close postal address",
+                                    "Status: " + response.statusCode()
+                            );
+                        }
+                    });
+        } catch (RichHttpRequestBuilderException e) {
+            throw new DataDistributionApiException(
+                    RegkeyEnum.CLOSE_POSTAL_ADDRESS,
+                    "Failed to build request for close postal address API",
+                    e.getMessage()
+            );
+        }
     }
 
     /**
-     * Dynamically replaces path variables like {uuid} with actual values.
+     * Create a new postal address for the given involved-party UUID.
+     * Calls:
+     * POST /v5/involved-parties/{uuid}/postal-addresses
      */
-    public String resolveEndpoint(String... values) {
-        String resolved = endpoint;
-        for (String value : values) {
-            resolved = resolved.replaceFirst("\\{[^}]+}", value);
+    public CompletableFuture<Void> createPostalAddress(String uuid, CreatePostalAddressRequest payload) {
+        try {
+            String url = RegkeyEnum.CREATE_POSTAL_ADDRESS.resolveEndpoint(uuid);
+            log.info("Calling OnePAM API to create postal address for UUID: {}", uuid);
+            Request request = new RichHttpRequestBuilder()
+                    .withUrl(url)
+                    .withMethod(Method.Post())
+                    .withJsonContent(payload)
+                    .withHeader("X-ING-LastUpdateUser", "IN_ADMIN")
+                    .build();
+            return apiClient.apply(request)
+                    .thenApply(response -> {
+                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                            log.info("Postal address created successfully for UUID: {}", uuid);
+                            return null;
+                        } else {
+                            log.error("Failed to create postal address. Status: {}", response.statusCode());
+                            throw new DataDistributionApiException(
+                                    RegkeyEnum.CREATE_POSTAL_ADDRESS,
+                                    "Failed to create postal address",
+                                    "Status: " + response.statusCode()
+                            );
+                        }
+                    });
+        } catch (RichHttpRequestBuilderException e) {
+            throw new DataDistributionApiException(
+                    RegkeyEnum.CREATE_POSTAL_ADDRESS,
+                    "Failed to build request for postal address creation",
+                    e.getMessage()
+            );
         }
-        return resolved;
     }
 
-    @Override
-    public String toString() {
-        return label + " || " + method + SPACE + endpoint;
+Notes
+	•	I intentionally return CompletableFuture<Void> to match the pattern used elsewhere (you can change to return response DTO if you prefer).
+	•	Methods use RegkeyEnum’s resolveEndpoint(...) to build URLs.
+
+⸻
+
+3) PayloadFactory.java
+
+Add a method to build CreatePostalAddressRequest from the OrganisationUnitDomainWrapper. Paste this into your existing PayloadFactory class (you already have other payload builders there).
+
+    public static CreatePostalAddressRequest buildCreatePostalPayload(OrganisationUnitDomainWrapper wrapper) {
+        return CreatePostalAddressRequest.builder()
+                .postalAddressUsageType("RSDNT_ADR")
+                .countryCode(wrapper.getPostalAddressCntryCd())
+                .cityName(wrapper.getPostalAddressCityName())
+                .streetName(wrapper.getPostalAddressStreetNm())
+                .houseNumber(wrapper.getPostalAddressHouseNum())
+                .houseNumberAddition(wrapper.getPostalAddressHouseAdd())
+                .postalCode(wrapper.getPostalAddressPostalCd())
+                .dataSource(wrapper.getRecordActionType() != null ? wrapper.getRecordActionType() : DATA_SOURCE)
+                .effectiveDate(java.time.ZonedDateTime.now().format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .endDate(java.time.ZonedDateTime.now().plusYears(10).format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .build();
     }
-}
+
+Notes
+	•	It uses DATA_SOURCE (you already import it somewhere else — if not, add import static com.ing.datadist.api.utils.DataDistributionConstants.DATA_SOURCE; at top of PayloadFactory).
+	•	You can tweak which wrapper fields map to which postal fields later.
+
+⸻
+
+4) RegkeyEnum.java update
+
+Add the CLOSE_POSTAL_ADDRESS entry if it’s not already present (paste into your enum list):
+
+    CLOSE_POSTAL_ADDRESS("CLOSE_POSTAL_ADDRESS", HttpMethod.POST, "https://api.ing.com/v5/involved-parties/{uuid}/postal-addresses/{postalAddressUsageType}/close"),
+
+You already have CREATE_POSTAL_ADDRESS and UPDATE_POSTAL_ADDRESS so keep them.
+
+⸻
+
+Final notes & how to paste safely
+	1.	Update UpdateOrganisationUnitService.java — replace the current file content with the first code block (or insert the postal block into your existing method where postal logic belongs). Keep other logic intact.
+	2.	Add the two new methods into OnePamRepository.java — place them alongside the other API methods.
+	3.	Add buildCreatePostalPayload(...) into PayloadFactory.java.
+	4.	Add CLOSE_POSTAL_ADDRESS in RegkeyEnum (if missing).
+
+This implements compare → soft-close → create inside UpdateOrganisationUnitService, uses constant RSDNT_ADR, and only touches the files you already have.
+
+⸻
+
+If you want I can now:
+	•	produce the exact diff for each file (so you can apply patches),
+	•	or generate unit-test stubs for the postal flow,
+	•	or adjust the compare method fields to match any additional wrapper fields you have (you gave many getter names — I used representative ones; if any getter names differ, paste the exact wrapper getters and I’ll fix them).
+
+Which would you like next?
