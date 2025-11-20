@@ -1,1 +1,335 @@
-make both service structures to be consistent..logic can be diff but template has to be same package com.ing.datadist.api.service; import com.ing.datadist.api.model.CreatePostalAddressRequest; import com.ing.datadist.configreader.CofaceOpsConfigReader; import lombok.extern.slf4j.Slf4j; import org.springframework.stereotype.Service; import java.time.ZonedDateTime; import java.time.format.DateTimeFormatter; import java.util.Collections; import java.util.List; import java.util.Map; import java.util.concurrent.ExecutionException; import static com.ing.datadist.api.utils.DataDistributionConstants.DATA_SOURCE; @Service @Slf4j public class AddressService { private final CofaceOpsConfigReader configReader; private final OnePamRepository onePamRepository; public AddressService(CofaceOpsConfigReader configReader, OnePamRepository onePamRepository) { this.configReader = configReader; this.onePamRepository = onePamRepository; } public void createPostalAddress(String uuid, String orgNumber) { log.info("Starting postal address creation for orgNumber: {} and uuid: {}", orgNumber, uuid); List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber); if (configs.isEmpty()) { log.warn("No config found for orgNumber: {}", orgNumber); return; } Map<String, String> config = configs.get(0); CreatePostalAddressRequest request = CreatePostalAddressRequest.builder() .postalAddressUsageType("STD") .countryCode(config.get("countryOfResidence")) .cityName(config.get("cityName")) .streetName(config.get("streetName")) .houseNumber(config.get("houseNumber")) .houseNumberAddition(config.get("houseNumberAddition")) .postalCode(config.get("postalCode")) .dataSource(DATA_SOURCE) .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)) .endDate(ZonedDateTime.now().plusYears(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)) .build(); try { onePamRepository.createPostalAddress(uuid, request).get(); log.info(" Successfully created postal address for UUID: {}", uuid); } catch (InterruptedException | ExecutionException e) { log.error(" Failed to create postal address for UUID: {}", uuid, e); Thread.currentThread().interrupt(); throw new RuntimeException("Postal address creation failed", e); } } } u see how req is getting build here similar i want for soft close package com.ing.datadist.api.service; import lombok.extern.slf4j.Slf4j; import org.springframework.stereotype.Service; @Service @Slf4j public class SoftClosePostalAddressService { private static final String POSTAL_USAGE_TYPE = "RSDNT_ADR"; private final OnePamRepository onePamRepository; public SoftClosePostalAddressService(OnePamRepository onePamRepository) { this.onePamRepository = onePamRepository; } /** * Synchronous soft-close. Blocks until the close API returns or throws. * This mirrors how you want soft-close hierarchy handled — not async. */ public void softClose(String uuid) { log.info("Attempting soft close of postal address for uuid: {} usageType: {}", uuid, POSTAL_USAGE_TYPE); try { // this returns CompletableFuture<Void> in OnePamRepository; .get() blocks and throws on errors onePamRepository.softClosePostalAddress(uuid, POSTAL_USAGE_TYPE).get(); log.info("Soft close succeeded for uuid: {}", uuid); }  catch (Exception e) { log.error("Soft close failed for uuid: {}", uuid, e); throw new RuntimeException("Soft close postal address failed", e); } } } -------------fix this one---------------- -------------then------------------------ -------------fix this one---------------- package com.ing.datadist.api.service; import com.fasterxml.jackson.core.JsonProcessingException; import com.fasterxml.jackson.databind.ObjectMapper; import com.ing.apisdk.toolkit.connectivity.api.JavaService; import com.ing.apisdk.toolkit.connectivity.transport.http.japi.RichHttpRequestBuilder; import com.ing.apisdk.toolkit.connectivity.transport.http.japi.RichHttpRequestBuilderException; import com.ing.datadist.api.config.InvolvedPartyApiProperties; import com.ing.datadist.api.exception.DataDistributionApiException; import com.ing.datadist.api.model.*; import com.ing.datadist.api.utils.RegkeyEnum; import com.twitter.finagle.http.Method; import com.twitter.finagle.http.Request; import com.twitter.finagle.http.Response; import lombok.extern.slf4j.Slf4j; import org.springframework.beans.factory.annotation.Qualifier; import org.springframework.stereotype.Component; import scala.collection.JavaConverters; import java.util.Map; import java.util.concurrent.CompletableFuture; @Slf4j @Component public class OnePamRepository { private final JavaService<Request, Response> apiClient; private final ObjectMapper objectMapper; private final InvolvedPartyApiProperties apiProperties; public OnePamRepository(@Qualifier("integrationServiceGeneric") JavaService<Request, Response> apiClient, ObjectMapper objectMapper, InvolvedPartyApiProperties apiProperties) { this.apiClient = apiClient; this.objectMapper = objectMapper; this.apiProperties = apiProperties; } public CompletableFuture<InvolvedPartiesOrganisationUnitResponse> createInvolvedParty(CreateOrganisationUnitRequest payload) { try { String url = RegkeyEnum.CREATE_INVOLVED_PARTY.endpoint; Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Post()) .withJsonContent(payload) .withHeader("X-ING-LastUpdateUse", "IN_ADMIN") .build(); return apiClient.apply(request) .thenApply(response -> { try { return objectMapper.readValue(response.contentString(), InvolvedPartiesOrganisationUnitResponse.class); } catch (Exception e) { throw new DataDistributionApiException( RegkeyEnum.CREATE_INVOLVED_PARTY, "Failed to parse response from Involved Party API", e.getMessage() ); } }); } catch (RichHttpRequestBuilderException e) { throw new DataDistributionApiException( RegkeyEnum.CREATE_INVOLVED_PARTY, "Failed to build request for create involved party API", e.getMessage() ); } } public CompletableFuture<Void> updateExternalIdentifier(String uuid, UpdateExternalIdentifierOrganisationUnitRequest payload) { try { String url = RegkeyEnum.UPDATE_EXTERNAL_IDENTIFIER.resolveEndpoint(uuid); Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Post()) .withJsonContent(payload) .withHeader("X-ING-LastUpdateUse", "IN_ADMIN") .build(); return apiClient.apply(request) .thenApply(response -> { if (response.statusCode() >= 200 && response.statusCode() < 300) { return null; } else { throw new DataDistributionApiException( RegkeyEnum.UPDATE_EXTERNAL_IDENTIFIER, "Failed to update external identifier", "Status: " + response.statusCode() ); } }); } catch (RichHttpRequestBuilderException e) { throw new DataDistributionApiException( RegkeyEnum.UPDATE_EXTERNAL_IDENTIFIER, "Failed to build request for update external identifier API", e.getMessage() ); } } public CompletableFuture<Void> createOrganisationUnitHierarchy(OrganisationUnitOrganisationRelationshipRequest payload) { try { String url = RegkeyEnum.CREATE_ORGANISATION_UNIT_HIERARCHY.endpoint; Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Post()) .withJsonContent(payload) .withHeader("X-ING-LastUpdateUse", "IN_ADMIN") .build(); return apiClient.apply(request) .thenApply(response -> { if (response.statusCode() >= 200 && response.statusCode() < 300) { return null; } else { throw new DataDistributionApiException( RegkeyEnum.CREATE_ORGANISATION_UNIT_HIERARCHY, "Failed to create organisation unit hierarchy", "Status: " + response.statusCode() ); } }); } catch (RichHttpRequestBuilderException e) { throw new DataDistributionApiException( RegkeyEnum.CREATE_ORGANISATION_UNIT_HIERARCHY, "Failed to build request for organisation unit hierarchy API", e.getMessage() ); } } public CompletableFuture<SearchInvolvedPartiesResponseV1> searchInvolvedPartyByInternalIdentifier(SearchInvolvedPartiesRequestV1 payload) { try { String url = RegkeyEnum.SEARCH_ORGANISATION_UNIT.endpoint; log.info("searchInvolvedPartyByInternalIdentifier request payload: {}", payload); String jsonPayload = objectMapper.writeValueAsString(payload); Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Post()) .withJsonContent(jsonPayload) .withHeader("Content-Type", "application/json") .build(); printRequest(request); return apiClient.apply(request) .thenApply(response -> { try { log.info("searchInvolvedPartyByInternalIdentifier response: {}", response); return objectMapper.readValue(response.contentString(), SearchInvolvedPartiesResponseV1.class); } catch (Exception e) { log.error("searchInvolvedPartyByInternalIdentifier error: {}", e.getMessage()); throw new DataDistributionApiException( RegkeyEnum.SEARCH_ORGANISATION_UNIT, "Failed to parse response from search organisation unit API", e.getMessage() ); } }); } catch (Exception e) { log.error("searchInvolvedPartyByInternalIdentifier API error: {}", e.getMessage()); throw new DataDistributionApiException( RegkeyEnum.SEARCH_ORGANISATION_UNIT, "Failed to build request for search organisation unit API", e.getMessage() ); } } public CompletableFuture<UpdateOrganisationUnitNameV5Response> updateOrganisationUnitName( UpdateOrganisationUnitNameV5Request payload, String uuid, String nameType) { try { String url = RegkeyEnum.UPDATE_ORGANISATION_UNIT_NAME.resolveEndpoint(uuid, nameType); Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Patch()) .withJsonContent(payload) .withHeader("X-ING-LastUpdateUser", "X-ING-LastUpdateUser") .build(); return apiClient.apply(request) .thenApply(response -> { try { return objectMapper.readValue(response.contentString(), UpdateOrganisationUnitNameV5Response.class); } catch (Exception e) { throw new DataDistributionApiException( RegkeyEnum.UPDATE_ORGANISATION_UNIT_NAME, "Failed to parse response from updateOrganisationUnitName API", e.getMessage() ); } }); } catch (RichHttpRequestBuilderException e) { throw new DataDistributionApiException( RegkeyEnum.UPDATE_ORGANISATION_UNIT_NAME, "Failed to build request for updateOrganisationUnitName API", e.getMessage() ); } } public CompletableFuture<UpdateInvolvedPartyResponseV5> updateInvolvedParty(UpdateInvolvedPartyRequestV5 payload, String uuid) { try { String url = RegkeyEnum.UPDATE_INVOLVED_PARTY.resolveEndpoint(uuid); Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Patch()) .withJsonContent(payload) .withHeader("X-ING-LastUpdateUser", "X-ING-LastUpdateUser") .build(); return apiClient.apply(request) .thenApply(response -> { try { return objectMapper.readValue(response.contentString(), UpdateInvolvedPartyResponseV5.class); } catch (Exception e) { throw new DataDistributionApiException( RegkeyEnum.UPDATE_INVOLVED_PARTY, "Failed to parse response for Update InvolvedParty Request API", e.getMessage() ); } }); } catch (RichHttpRequestBuilderException e) { throw new DataDistributionApiException( RegkeyEnum.UPDATE_INVOLVED_PARTY, "Failed to build request for Update InvolvedParty Request API", e.getMessage() ); } } private static void printRequest(Request req) { try { log.info("----- Request Details -----"); log.info("Method: {}", req.method()); log.info("URI: {}", req.uri()); log.info("Version: {}", req.version()); Map<String, String> headerMap = JavaConverters.mapAsJavaMapConverter(req.headerMap()).asJava(); for (Map.Entry<String, String> entry : headerMap.entrySet()) { log.info("Header: {}: {}", entry.getKey(), entry.getValue()); } log.info("Body: {}", req.contentString()); log.info("---------------------------"); } catch (Exception e) { log.error("Exception while printing request", e); } } public CompletableFuture<Void> createPostalAddress(String uuid, CreatePostalAddressRequest payload) { try { String url = RegkeyEnum.CREATE_POSTAL_ADDRESS.resolveEndpoint(uuid); log.info("Calling OnePAM API to create postal address for UUID: {}", uuid); Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Patch()) .withJsonContent(payload) .withHeader("X-ING-LastUpdateUser", "X-ING-LastUpdateUser") .build(); return apiClient.apply(request) .thenApply(response -> { if (response.statusCode() >= 200 && response.statusCode() < 300) { log.info("Postal address created successfully for UUID: {}", uuid); return null; } else { log.error("Failed to create postal address. Status: {}", response.statusCode()); throw new DataDistributionApiException( RegkeyEnum.CREATE_POSTAL_ADDRESS, "Failed to create postal address", "Status: " + response.statusCode() ); } }); } catch (RichHttpRequestBuilderException e) { throw new DataDistributionApiException( RegkeyEnum.CREATE_POSTAL_ADDRESS, "Failed to build request for postal address creation", e.getMessage() ); } } //fixme need fetch the even OrganisationUnitHierarchy uuid from Accounting table later public OrganisationUnitOrganisationRelationshipResponse closeOrganisationHierarchyRelationship(String uuid) { try { String url = RegkeyEnum.CLOSE_ORGANISATION_HIERARCHY_RELATIONSHIP.resolveEndpoint(uuid); log.info("Closing Organisation Hierarchy Relationship"); log.info("Request URL: {}", url); Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Post()) .withHeader("X-ING-LastUpdateUser", "IN_ADMIN") .build(); printRequest(request); Response response = apiClient.apply(request).get(); log.info("Response Status: {}", response.statusCode()); log.info("Response Body: {}", response.contentString()); if (response.statusCode() >= 200) { ObjectMapper mapper = new ObjectMapper(); return mapper.readValue(response.contentString(), OrganisationUnitOrganisationRelationshipResponse.class); } else { throw new DataDistributionApiException( RegkeyEnum.CLOSE_ORGANISATION_HIERARCHY_RELATIONSHIP, "Failed to close relationship", "Status: " + response.statusCode() ); } } catch (Exception e) { log.error("Exception while closing Organisation Hierarchy Relationship for uuid={}", uuid, e); throw new DataDistributionApiException( RegkeyEnum.CLOSE_ORGANISATION_HIERARCHY_RELATIONSHIP, "Error during closing organisation hierarchy relationship", e.getMessage()); } } public CompletableFuture<UpdatePostalAddressV5Response> updatePostalAddress( UpdatePostalAddressV5Request payload, String uuid, String usageType) { try { String url = RegkeyEnum.UPDATE_POSTAL_ADDRESS.resolveEndpoint(uuid, usageType); log.info("Updating Postal Address for UUID: {} usageType: {}", uuid, usageType); Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Patch()) .withJsonContent(payload) .withHeader("X-ING-LastUpdateUser", "IN_ADMIN") .build(); return apiClient.apply(request) .thenApply(response -> { try { return objectMapper.readValue( response.contentString(), UpdatePostalAddressV5Response.class ); } catch (Exception e) { throw new DataDistributionApiException( RegkeyEnum.UPDATE_POSTAL_ADDRESS, "Failed to parse response from updatePostalAddress API", e.getMessage() ); } }); } catch (RichHttpRequestBuilderException e) { throw new DataDistributionApiException( RegkeyEnum.UPDATE_POSTAL_ADDRESS, "Failed to build request for updatePostalAddress API", e.getMessage() ); } } public CompletableFuture<UpdateDigitalAddressV5Response> updateDigitalAddress( UpdateDigitalAddressV5Request payload, String uuid, String usageType) { try { String url = RegkeyEnum.UPDATE_DIGITAL_ADDRESS.resolveEndpoint(uuid, usageType); log.info("Updating Digital Address for UUID: {} usageType: {}", uuid, usageType); Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Patch()) .withJsonContent(payload) .withHeader("X-ING-LastUpdateUser", "IN_ADMIN") .build(); return apiClient.apply(request) .thenApply(response -> { try { return objectMapper.readValue( response.contentString(), UpdateDigitalAddressV5Response.class ); } catch (Exception e) { throw new DataDistributionApiException( RegkeyEnum.UPDATE_DIGITAL_ADDRESS, "Failed to parse response from updateDigitalAddress API", e.getMessage() ); } }); } catch (RichHttpRequestBuilderException e) { throw new DataDistributionApiException( RegkeyEnum.UPDATE_DIGITAL_ADDRESS, "Failed to build request for updateDigitalAddress API", e.getMessage() ); } } /** * Soft-close an active postal address for the given involved-party UUID and usageType. * Calls: * POST /v5/involved-parties/{uuid}/postal-addresses/{postalAddressUsageType}/close */ public CompletableFuture<Void> softClosePostalAddress(String uuid, String usageType) { try { String url = RegkeyEnum.CLOSE_POSTAL_ADDRESS.resolveEndpoint(uuid, usageType); log.info("Calling OnePAM API to close postal address for UUID: {} usageType: {}", uuid, usageType); Request request = new RichHttpRequestBuilder() .withUrl(url) .withMethod(Method.Post()) .withHeader("X-ING-LastUpdateUser", "IN_ADMIN") .build(); return apiClient.apply(request) .thenApply(response -> { if (response.statusCode() >= 200 && response.statusCode() < 300) { return null; } else { throw new DataDistributionApiException( RegkeyEnum.CLOSE_POSTAL_ADDRESS, "Failed to close postal address", "Status: " + response.statusCode() ); } }); } catch (Exception e) { throw new DataDistributionApiException( RegkeyEnum.CLOSE_POSTAL_ADDRESS, "Failed to build request for close postal address API", e.getMessage() ); } } } in onepam u see other methods..similar make the softclose for postal addr also keep the method structure consistent across each classs
+package com.ing.datadist.api.service;
+
+import com.ing.datadist.api.model.*;
+
+import com.ing.datadist.domain.OrganisationUnitDomainWrapper;
+
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.lang.NonNull;
+
+import org.springframework.stereotype.Service;
+import com.ing.datadist.api.payload.PayloadFactory;
+import java.util.List;
+
+import java.util.Objects;
+
+@Service
+
+@Slf4j
+
+public class UpdateOrganisationUnitService {
+
+    private final OnePamRepository onePamRepository;
+
+    private final AddressService addressService;
+
+    private final SoftClosePostalAddressService softCloseService;
+
+    public UpdateOrganisationUnitService(OnePamRepository onePamRepository,
+
+                                         AddressService addressService,
+
+                                         SoftClosePostalAddressService softCloseService) {
+
+        this.onePamRepository = onePamRepository;
+
+        this.addressService = addressService;
+
+        this.softCloseService = softCloseService;
+
+    }
+
+    /**
+
+     * MAIN ENTRY POINT
+
+     */
+
+    public void updateOrganisationUnit(OrganisationUnitDomainWrapper wrapper,
+
+                                       SearchInvolvedPartiesResponseV1 response,
+
+                                       @NonNull Boolean apiFlag) throws Exception {
+
+        String uuid = wrapper.getOpsUUID();
+
+        List<SearchOrganisationUnitResponseV1> organisationUnits = response.getOrganisationUnits();
+
+        for (SearchOrganisationUnitResponseV1 ou : organisationUnits) {
+
+            // 1 — Update Name
+
+            updateNameIfNeeded(uuid, wrapper, ou.getOrganisationUnitNames(), apiFlag);
+
+            // 2 — Update Postal Address (Compare → Soft Close → Create New)
+
+            updatePostalAddressFlow(uuid, wrapper, ou.getPostalAddresses(), apiFlag);
+
+            // 3 — Update Digital Address
+
+            updateDigitalAddressIfNeeded(uuid, wrapper, ou.getDigitalAddresses(), apiFlag);
+
+        }
+
+    }
+
+    private void updateNameIfNeeded(String uuid,
+
+                                    OrganisationUnitDomainWrapper wrapper,
+
+                                    List<SearchOrganisationUnitNameResponseV1> names,
+
+                                    boolean apiFlag) {
+
+        for (SearchOrganisationUnitNameResponseV1 name : names) {
+
+            if (!Objects.equals(wrapper.getOrganisationUnitName(), name.getOrganisationUnitName())) {
+
+                log.info("Name changed for uuid:{} old:{} new:{}", uuid, name.getOrganisationUnitName(), wrapper.getOrganisationUnitName());
+
+                if (apiFlag) {
+
+                    onePamRepository.updateOrganisationUnitName(
+
+                            PayloadFactory.buildUpdateNamePayload(wrapper, wrapper.getOrganisationUnitName()),
+
+                            uuid,
+
+                            "DD"
+
+                    );
+
+                }
+
+            }
+
+        }
+
+    }
+
+    private void updatePostalAddressFlow(String uuid,
+
+                                         OrganisationUnitDomainWrapper incoming,
+
+                                         List<SearchOrganisationUnitAddressResponseV1> existingAddresses,
+
+                                         boolean apiFlag) {
+
+        for (SearchOrganisationUnitAddressResponseV1 existing : existingAddresses) {
+
+            if (!isPostalAddressChanged(existing, incoming)) {
+
+                log.info("Postal address unchanged for uuid: {}", uuid);
+
+                continue;
+
+            }
+
+            log.info("Postal address changed for uuid: {}. Soft closing …", uuid);
+
+            if (apiFlag) {
+
+                // 1) SOFT CLOSE (synchronous)
+
+                softCloseService.softClose(uuid);
+
+                log.info("Soft close success for uuid: {}. Creating new postal address…", uuid);
+
+                // 2) CREATE NEW POSTAL ADDRESS (synchronous)
+
+                addressService.createPostalAddress(uuid, incoming);
+
+                log.info("New postal address created successfully for uuid: {}", uuid);
+
+            } else {
+
+                log.info("apiFlag false — skipping actual postal API calls for uuid: {}", uuid);
+
+            }
+
+        }
+
+    }
+
+    // Compare ALL fields in ONE method
+
+    private boolean isPostalAddressChanged(SearchOrganisationUnitAddressResponseV1 existing,
+
+                                           OrganisationUnitDomainWrapper incoming) {
+
+        if (!Objects.equals(existing.getStreetName(), incoming.getPostalAddressStreetNm())) return true;
+
+        if (!Objects.equals(existing.getHouseNumber(), incoming.getPostalAddressHouseNum())) return true;
+
+        if (!Objects.equals(existing.getHouseNumberAddition(), incoming.getPostalAddressHouseAdd())) return true;
+
+        if (!Objects.equals(existing.getPostalCode(), incoming.getPostalAddressPostalCd())) return true;
+
+        if (!Objects.equals(existing.getCityName(), incoming.getPostalAddressCityName())) return true;
+
+        if (!Objects.equals(existing.getCountryCode(), incoming.getPostalAddressCntryCd())) return true;
+
+        return false;
+
+    }
+
+    private void updateDigitalAddressIfNeeded(String uuid,
+
+                                              OrganisationUnitDomainWrapper wrapper,
+
+                                              List<SearchOrganisationUnitDigitalAddressesV1> digitalAddresses,
+
+                                              boolean apiFlag) {
+
+        for (SearchOrganisationUnitDigitalAddressesV1 digital : digitalAddresses) {
+
+            if (!Objects.equals(wrapper.getDigitalAddrEmail(), digital.getFullDigitalAddress())) {
+
+                log.info("Digital address changed for uuid:{} old:{} new:{}", uuid, digital.getFullDigitalAddress(), wrapper.getDigitalAddrEmail());
+
+                if (apiFlag) {
+
+                    onePamRepository.updateDigitalAddress(
+
+                            PayloadFactory.buildUpdateDigitalPayload(wrapper),
+
+                            uuid,
+
+                            "DD"
+
+                    );
+
+                }
+
+            }
+
+        }
+
+    }
+
+}
+
+final files:
+package com.ing.datadist.api.service;
+import com.ing.datadist.api.model.CreatePostalAddressRequest;
+import com.ing.datadist.configreader.CofaceOpsConfigReader;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import static com.ing.datadist.api.utils.DataDistributionConstants.DATA_SOURCE;
+
+@Service
+@Slf4j
+public class AddressService {
+    private final CofaceOpsConfigReader configReader;
+    private final OnePamRepository onePamRepository;
+    public AddressService(CofaceOpsConfigReader configReader, OnePamRepository onePamRepository) {
+        this.configReader = configReader;
+        this.onePamRepository = onePamRepository;
+    }
+    public void createPostalAddress(String uuid, String orgNumber) {
+        log.info("Starting postal address creation for orgNumber: {} and uuid: {}", orgNumber, uuid);
+        List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
+        if (configs.isEmpty()) {
+            log.warn("No config found for orgNumber: {}", orgNumber);
+            return;
+        }
+
+        Map<String, String> config = configs.get(0);
+        CreatePostalAddressRequest request = CreatePostalAddressRequest.builder()
+                .postalAddressUsageType("STD")
+                .countryCode(config.get("countryOfResidence"))
+                .cityName(config.get("cityName"))
+                .streetName(config.get("streetName"))
+                .houseNumber(config.get("houseNumber"))
+                .houseNumberAddition(config.get("houseNumberAddition"))
+                .postalCode(config.get("postalCode"))
+                .dataSource(DATA_SOURCE)
+                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .endDate(ZonedDateTime.now().plusYears(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .build();
+        try {
+            onePamRepository.createPostalAddress(uuid, request).get();
+            log.info(" Successfully created postal address for UUID: {}", uuid);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error(" Failed to create postal address for UUID: {}", uuid, e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Postal address creation failed", e);
+        }
+    }
+}
+
+
+
+package com.ing.datadist.api.payload;
+
+import com.ing.datadist.api.model.*;
+
+import com.ing.datadist.domain.OrganisationUnitDomainWrapper;
+
+import java.time.ZonedDateTime;
+
+import java.time.format.DateTimeFormatter;
+
+public class PayloadFactory {
+    public static UpdateOrganisationUnitNameV5Request buildUpdateNamePayload(
+            OrganisationUnitDomainWrapper wrapper,
+            String newName
+    ) {
+        return UpdateOrganisationUnitNameV5Request.builder()
+                .organisationUnitName(newName != null ? newName : wrapper.getOrganisationUnitName())
+                .dataSource(wrapper.getRecordActionType())
+                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .build();
+    }
+    public static UpdatePostalAddressV5Request buildUpdatePostalPayload(
+            OrganisationUnitDomainWrapper wrapper
+    ) {
+        return UpdatePostalAddressV5Request.builder()
+                .lastVerificationDate("2023-05-03T10:11:12.999Z")
+                .endDate("2050-12-12T23:59:59.999+02:00")
+                .deliveryFailureReasonType("ADR_NOT_EXST")
+                .build();
+    }
+    public static UpdateDigitalAddressV5Request buildUpdateDigitalPayload(
+            OrganisationUnitDomainWrapper wrapper
+    ) {
+        return UpdateDigitalAddressV5Request.builder()
+                .fullDigitalAddress("hello@ing.com")   // TEMP CONSTANT
+                .deliveryFailureReasonType("ADR_NOT_EXST")
+                .dataSource("FOS_IT")
+                .effectiveDate("2020-10-10T10:11:12.345+02:00")
+                .endDate("2050-12-12T23:59:59.999+02:00")
+                .build();
+    }
+
+}
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  30.782 s
+[INFO] Finished at: 2025-11-20T18:18:23+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure
+[ERROR] /C:/Users/UU47VT/cud-II/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/UpdateOrganisationUnitService.java:[141,58] cannot find symbol
+[ERROR]   symbol:   variable orgNumber
+[ERROR]   location: class com.ing.datadist.api.service.UpdateOrganisationUnitService
+[ERROR]
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+[ERROR]
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn <args> -rf :DataDistribution
+PS C:\Users\UU47VT\cud-II\P33558-DataDistributorAPI> 
