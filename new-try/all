@@ -1,0 +1,193 @@
+package com.ing.datadist.api.service;
+import com.ing.datadist.api.model.*;
+import com.ing.datadist.domain.OrganisationUnitDomainWrapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.lang.NonNull;
+import com.ing.datadist.api.payload.PayloadFactory;
+import java.util.List;
+import java.util.Objects;
+@Service
+@Slf4j
+public class UpdateOrganisationUnitService {
+    private final OnePamRepository onePamRepository;
+    public UpdateOrganisationUnitService(OnePamRepository onePamRepository){
+        this.onePamRepository = onePamRepository;
+    }
+    public void updateOrganisationUnit(OrganisationUnitDomainWrapper wrapper,
+                                       SearchInvolvedPartiesResponseV1 response,
+                                       @NonNull Boolean apiFlag) throws Exception {
+        String uuid = wrapper.getOpsUUID();
+        List<SearchOrganisationUnitResponseV1> organisationUnits = response.getOrganisationUnits();
+        for (SearchOrganisationUnitResponseV1 organisationUnit : organisationUnits) {
+            List<SearchOrganisationUnitNameResponseV1> organisationUnitNames = organisationUnit.getOrganisationUnitNames();
+            List<SearchOrganisationUnitAddressResponseV1> postalAddresses = organisationUnit.getPostalAddresses();
+            List<SearchOrganisationUnitDigitalAddressesV1> digitalAddresses = organisationUnit.getDigitalAddresses();
+            for (SearchOrganisationUnitNameResponseV1 name : organisationUnitNames) {
+                if (Objects.equals(wrapper.getOrganisationUnitName(), name.getOrganisationUnitName())) {
+                    log.info("Update organisationUnit name changed for uuid:{}  old:{} new:{}  ",
+                            uuid, wrapper.getOrganisationUnitName(), name.getOrganisationUnitName());
+                    if(apiFlag){
+                        UpdateOrganisationUnitNameV5Request payload =
+                                PayloadFactory.buildUpdateNamePayload(wrapper, wrapper.getOrganisationUnitName());
+                        onePamRepository.updateOrganisationUnitName(payload, uuid, "DD");
+                    }
+                }
+            }
+            for (SearchOrganisationUnitAddressResponseV1 address : postalAddresses) {
+                if (Objects.equals(wrapper.getPostalAddressStreetNm(), address.getStreetName())) {
+                    log.info("Update organisationUnit StreetName changed for uuid:{}   old:{} new:{}  ",
+                            uuid, wrapper.getPostalAddressStreetNm(), address.getStreetName());
+                    if(apiFlag){
+                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
+                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
+                    }
+                }
+                if (Objects.equals(wrapper.getPostalAddressHouseNum(), address.getHouseNumber())) {
+                    log.info("Update organisationUnit HouseNum changed for uuid:{}   old:{} new:{}  ",
+                            uuid, wrapper.getPostalAddressHouseNum(), address.getHouseNumber());
+                    if(apiFlag){
+                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
+                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
+                    }
+                }
+                if (Objects.equals(wrapper.getPostalAddressHouseAdd(), address.getHouseNumberAddition())) {
+                    log.info("Update organisationUnit HouseAdd changed for uuid:{}  old:{} new:{}  ",
+                            uuid, wrapper.getPostalAddressHouseAdd(), address.getHouseNumberAddition());
+                    if(apiFlag){
+                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
+                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
+                    }
+                }
+                if (Objects.equals(wrapper.getPostalAddressPostalCd(), address.getPostalCode())) {
+                    log.info("Update organisationUnit PostalCode changed for uuid:{}  old:{} new:{}  ",
+                            uuid, wrapper.getPostalAddressPostalCd(), address.getPostalCode());
+                    if(apiFlag){
+                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
+                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
+                    }
+                }
+                if (Objects.equals(wrapper.getPostalAddressCityName(), address.getCityName())) {
+                    log.info("Update organisationUnit CityName changed for uuid:{}  old:{} new:{}  ",
+                            uuid, wrapper.getPostalAddressCityName(), address.getCityName());
+                    if(apiFlag){
+                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
+                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
+                    }
+                }
+                if (Objects.equals(wrapper.getPostalAddressCntryCd(), address.getCountryCode())) {
+                    log.info("Update organisationUnit CountryCode changed for uuid:{}  old:{} new:{}  ",
+                            uuid, wrapper.getPostalAddressCntryCd(), address.getCountryCode());
+                    if(apiFlag){
+                        UpdatePostalAddressV5Request payload = PayloadFactory.buildUpdatePostalPayload(wrapper);
+                        onePamRepository.updatePostalAddress(payload, uuid, "DD");
+                    }
+                }
+            }
+            for (SearchOrganisationUnitDigitalAddressesV1 digitalAddress : digitalAddresses) {
+                if (Objects.equals(wrapper.getDigitalAddrEmail(), digitalAddress.getFullDigitalAddress())) {
+                    log.info("Update organisationUnit FullDigitalAddress changed for uuid:{}  old:{} new:{} ",
+                            uuid, wrapper.getDigitalAddrEmail(), digitalAddress.getFullDigitalAddress());
+                    if(apiFlag){
+                        UpdateDigitalAddressV5Request payload =
+                                PayloadFactory.buildUpdateDigitalPayload(wrapper);
+                        onePamRepository.updateDigitalAddress(payload, uuid, "DD");
+                    }
+                }
+            }
+        }
+    }
+}
+package com.ing.datadist.api.payload;
+
+import com.ing.datadist.api.model.*;
+
+import com.ing.datadist.domain.OrganisationUnitDomainWrapper;
+
+import java.time.ZonedDateTime;
+
+import java.time.format.DateTimeFormatter;
+
+public class PayloadFactory {
+    public static UpdateOrganisationUnitNameV5Request buildUpdateNamePayload(
+            OrganisationUnitDomainWrapper wrapper,
+            String newName
+    ) {
+        return UpdateOrganisationUnitNameV5Request.builder()
+                .organisationUnitName(newName != null ? newName : wrapper.getOrganisationUnitName())
+                .dataSource(wrapper.getRecordActionType())
+                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .build();
+    }
+    public static UpdatePostalAddressV5Request buildUpdatePostalPayload(
+            OrganisationUnitDomainWrapper wrapper
+    ) {
+        return UpdatePostalAddressV5Request.builder()
+                .lastVerificationDate("2023-05-03T10:11:12.999Z")
+                .endDate("2050-12-12T23:59:59.999+02:00")
+                .deliveryFailureReasonType("ADR_NOT_EXST")
+                .build();
+    }
+    public static UpdateDigitalAddressV5Request buildUpdateDigitalPayload(
+            OrganisationUnitDomainWrapper wrapper
+    ) {
+        return UpdateDigitalAddressV5Request.builder()
+                .fullDigitalAddress("hello@ing.com")   // TEMP CONSTANT
+                .deliveryFailureReasonType("ADR_NOT_EXST")
+                .dataSource("FOS_IT")
+                .effectiveDate("2020-10-10T10:11:12.345+02:00")
+                .endDate("2050-12-12T23:59:59.999+02:00")
+                .build();
+    }
+
+}
+package com.ing.datadist.api.utils;
+
+
+import jakarta.ws.rs.HttpMethod;
+import lombok.Generated;
+
+import static org.apache.commons.lang3.StringUtils.SPACE;
+
+@Generated
+public enum RegkeyEnum {
+    //OnePam endpoints
+    CREATE_INVOLVED_PARTY("CREATE_INVOLVED_PARTY", HttpMethod.POST, "https://api.ing.com/v5/involved-parties"),
+    UPDATE_EXTERNAL_IDENTIFIER("UPDATE_EXTERNAL_IDENTIFIER", HttpMethod.POST, "https://api.ing.com/v5/involved-parties/{uuid}/external-identifiers"),
+    CREATE_ORGANISATION_UNIT_HIERARCHY("CREATE_ORGANISATION_UNIT_HIERARCHY", HttpMethod.POST, "https://api.ing.com/v1/organisation-hierarchies/relationship"),
+    SEARCH_ORGANISATION_UNIT("SEARCH_ORGANISATION_UNIT", HttpMethod.POST, "https://api.ing.com/v1/partyandagreementsearch/involved-parties/search"),
+    UPDATE_INVOLVED_PARTY("UPDATE_INVOLVED_PARTY", HttpMethod.PATCH, "https://api.ing.com/v5/involved-parties/{uuid}"),
+    CLOSE_ORGANISATION_HIERARCHY_RELATIONSHIP("CLOSE_ORGANISATION_HIERARCHY_RELATIONSHIP", HttpMethod.POST, "https://api.ing.com/v1/organisation-hierarchies/relationship/{uuid}/close"),
+    UPDATE_ORGANISATION_UNIT_NAME("UPDATE_ORGANISATION_UNIT_NAME", HttpMethod.POST, "https://api.ing.com/v5/involved-parties/{uuid}/organisation-unit-names/{nameType}"),
+    CREATE_POSTAL_ADDRESS("CREATE_POSTAL_ADDRESS", HttpMethod.POST, "https://api.ing.com/v5/involved-parties/{uuid}/postal-addresses"),
+    UPDATE_POSTAL_ADDRESS("UPDATE_POSTAL_ADDRESS", HttpMethod.PATCH, "https://api.ing.com/v5/involved-parties/{uuid}/postal-addresses/{postalAddressUsageType}"),
+    UPDATE_DIGITAL_ADDRESS("UPDATE_DIGITAL_ADDRESS", HttpMethod.PATCH, "https://api.ing.com/v5/involved-parties/{uuid}/digital-addresses/{usageType}");
+
+
+
+    public final String label;
+    public final String method;
+    public final String endpoint;
+
+    RegkeyEnum(String label, String method, String endpoint) {
+        this.label = label;
+        this.method = method;
+        this.endpoint = endpoint;
+    }
+
+    /**
+     * Dynamically replaces path variables like {uuid} with actual values.
+     */
+    public String resolveEndpoint(String... values) {
+        String resolved = endpoint;
+        for (String value : values) {
+            resolved = resolved.replaceFirst("\\{[^}]+}", value);
+        }
+        return resolved;
+    }
+
+    @Override
+    public String toString() {
+        return label + " || " + method + SPACE + endpoint;
+    }
+}
