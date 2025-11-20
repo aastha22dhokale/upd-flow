@@ -1,0 +1,117 @@
+[INFO] 1 error
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for DataDistributorAPIService 1.0.0:
+[INFO]
+[INFO] DataDistributorAPIService .......................... SUCCESS [ 11.609 s]
+[INFO] DataDistributorAPI-conf ............................ SUCCESS [  1.143 s]
+[INFO] DataDistribution ................................... FAILURE [ 15.449 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  28.796 s
+[INFO] Finished at: 2025-11-20T19:01:56+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure
+[ERROR] /C:/Users/UU47VT/cud-II/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/payload/PayloadFactory.java:[41,17] cannot find symbol
+[ERROR]   symbol:   method streetName(java.lang.String)
+[ERROR]   location: class com.ing.datadist.api.model.UpdatePostalAddressV5Request.UpdatePostalAddressV5RequestBuilder
+[ERROR]
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+[ERROR]
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn <args> -rf :DataDistribution
+PS C:\Users\UU47VT\cud-II\P33558-DataDistributorAPI> 
+
+
+package com.ing.datadist.api.payload;
+
+import com.ing.datadist.api.model.*;
+
+import com.ing.datadist.domain.OrganisationUnitDomainWrapper;
+
+import java.time.ZonedDateTime;
+
+import java.time.format.DateTimeFormatter;
+
+public class PayloadFactory {
+
+    // NAME UPDATE
+
+    public static UpdateOrganisationUnitNameV5Request buildUpdateNamePayload(
+
+            OrganisationUnitDomainWrapper wrapper) {
+
+        return UpdateOrganisationUnitNameV5Request.builder()
+
+                .organisationUnitName(wrapper.getOrganisationUnitName())
+
+                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+
+                .dataSource(wrapper.getRecordActionType())
+
+                .build();
+
+    }
+
+
+    // POSTAL ADDRESS UPDATE (PATCH SOFT CLOSE)
+
+    public static UpdatePostalAddressV5Request buildUpdatePostalPayload(
+
+            OrganisationUnitDomainWrapper wrapper) {
+
+        return UpdatePostalAddressV5Request.builder()
+
+                .streetName(wrapper.getPostalAddressStreetNm())
+
+                .houseNumber(wrapper.getPostalAddressHouseNum())
+
+                .houseNumberAddition(wrapper.getPostalAddressHouseAdd())
+
+                .postalCode(wrapper.getPostalAddressPostalCd())
+
+                .cityName(wrapper.getPostalAddressCityName())
+
+                .countryCode(wrapper.getPostalAddressCntryCd())
+
+                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+
+                .dataSource(wrapper.getRecordActionType())
+
+                .build();
+
+    }
+
+
+    // DIGITAL ADDRESS UPDATE
+
+    public static UpdateDigitalAddressV5Request buildUpdateDigitalPayload(
+
+            OrganisationUnitDomainWrapper wrapper) {
+
+        return UpdateDigitalAddressV5Request.builder()
+
+                .fullDigitalAddress(wrapper.getDigitalAddrEmail())
+
+                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+
+                .endDate("2050-12-12T23:59:59.999+02:00")
+
+                .deliveryFailureReasonType("ADR_NOT_EXST")
+
+                .dataSource(wrapper.getRecordActionType())
+
+                .build();
+
+    }
+
+}
+
+
