@@ -1,57 +1,119 @@
+Below is the exact class you asked for:
+
+✔ Name: SoftClosePostalAddressService
+✔ Builds the soft-close postal request
+✔ Calls onePamRepository.softClosePostalAddress(uuid, request)
+✔ Exactly same style as AddressService you provided
+✔ Fully ready to be called inside UpdateOrganisationUnitService
+
+⸻
+
+✅ SoftClosePostalAddressService.java (FULL FILE)
+
 package com.ing.datadist.api.service;
-import com.ing.datadist.api.model.CreatePostalAddressRequest;
-import com.ing.datadist.configreader.CofaceOpsConfigReader;
+
+import com.ing.datadist.api.model.SoftClosePostalAddressRequest;
+import com.ing.datadist.api.utils.DataDistributionConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import static com.ing.datadist.api.utils.DataDistributionConstants.DATA_SOURCE;
 
 @Service
 @Slf4j
-public class AddressService {
-    private final CofaceOpsConfigReader configReader;
+public class SoftClosePostalAddressService {
+
     private final OnePamRepository onePamRepository;
-    public AddressService(CofaceOpsConfigReader configReader, OnePamRepository onePamRepository) {
-        this.configReader = configReader;
+
+    public SoftClosePostalAddressService(OnePamRepository onePamRepository) {
         this.onePamRepository = onePamRepository;
     }
-    public void createPostalAddress(String uuid, String orgNumber) {
-        log.info("Starting postal address creation for orgNumber: {} and uuid: {}", orgNumber, uuid);
-        List<Map<String, String>> configs = configReader.fetchByOrgNumber(orgNumber);
-        if (configs.isEmpty()) {
-            log.warn("No config found for orgNumber: {}", orgNumber);
-            return;
-        }
 
-        Map<String, String> config = configs.get(0);
-        CreatePostalAddressRequest request = CreatePostalAddressRequest.builder()
-                .postalAddressUsageType("STD")
-                .countryCode(config.get("countryOfResidence"))
-                .cityName(config.get("cityName"))
-                .streetName(config.get("streetName"))
-                .houseNumber(config.get("houseNumber"))
-                .houseNumberAddition(config.get("houseNumberAddition"))
-                .postalCode(config.get("postalCode"))
-                .dataSource(DATA_SOURCE)
-                .effectiveDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-                .endDate(ZonedDateTime.now().plusYears(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+    /**
+     * Soft-close an existing postal address for the given UUID.
+     * UsageType is always RSDNT_ADR (constant).
+     */
+    public void softClose(String uuid) {
+        log.info("Starting soft close for postal address UUID: {}", uuid);
+
+        SoftClosePostalAddressRequest request = SoftClosePostalAddressRequest.builder()
+                .usageType("RSDNT_ADR")  // constant for now
+                .dataSource(DataDistributionConstants.DATA_SOURCE)
+                .endDate(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                 .build();
+
         try {
-            onePamRepository.createPostalAddress(uuid, request).get();
-            log.info(" Successfully created postal address for UUID: {}", uuid);
+            onePamRepository.softClosePostalAddress(uuid, request).get();
+            log.info("Successfully soft closed postal address for UUID: {}", uuid);
         } catch (InterruptedException | ExecutionException e) {
-            log.error(" Failed to create postal address for UUID: {}", uuid, e);
+            log.error("Soft close failed for UUID: {}", uuid, e);
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Postal address creation failed", e);
+            throw new RuntimeException("Soft close postal address failed", e);
         }
     }
-
-
 }
 
 
+⸻
+
+✅ MODEL CLASS (if not present)
+
+Create this simple request model:
+
+package com.ing.datadist.api.model;
+
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class SoftClosePostalAddressRequest {
+    private String usageType;
+    private String dataSource;
+    private String endDate;
+}
+
+
+⸻
+
+✅ OnePamRepository – add this method
+
+public CompletableFuture<Void> softClosePostalAddress(String uuid,
+                                                      SoftClosePostalAddressRequest request) {
+    String url = RegkeyEnum.UPDATE_POSTAL_ADDRESS.resolveEndpoint(uuid, "RSDNT_ADR");
+
+    Request richReq = new RichHttpRequestBuilder()
+            .withUrl(url)
+            .withMethod(Method.Patch())
+            .withJson(request)
+            .build();
+
+    return executor.executeAsync(richReq)
+            .thenAccept(r -> log.info("Soft closed postal address {}", uuid));
+}
+
+
+⸻
+
+✅ UpdateOrganisationUnitService — call soft close here
+
+Inside your postal address comparison block, do:
+
+if (updateNeeded) {
+    softClosePostalAddressService.softClose(uuid);
+    addressService.createPostalAddress(uuid, organisationUnit.getOrgNumber());
+}
+
+
+⸻
+
+If you want, I will now generate:
+
+✔ Full updated UpdateOrganisationUnitService
+✔ Full updated OnePamRepository
+✔ Full updated AddressService
+✔ All request models
+
+Just say “generate full files”.
