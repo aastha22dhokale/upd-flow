@@ -1,0 +1,296 @@
+package com.ing.datadist.api.service;
+
+import com.ing.datadist.api.model.*;
+
+import com.ing.datadist.domain.OrganisationUnitDomainWrapper;
+
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.lang.NonNull;
+
+import org.springframework.stereotype.Service;
+import com.ing.datadist.api.payload.PayloadFactory;
+import java.util.List;
+
+import java.util.Objects;
+
+@Service
+
+@Slf4j
+
+public class UpdateOrganisationUnitService {
+
+    private final OnePamRepository onePamRepository;
+
+    private final AddressService addressService;
+
+    private final SoftClosePostalAddressService softCloseService;
+
+    public UpdateOrganisationUnitService(OnePamRepository onePamRepository,
+
+                                         AddressService addressService,
+
+                                         SoftClosePostalAddressService softCloseService) {
+
+        this.onePamRepository = onePamRepository;
+
+        this.addressService = addressService;
+
+        this.softCloseService = softCloseService;
+
+    }
+
+    /**
+
+     * MAIN ENTRY POINT
+
+     */
+
+    public void updateOrganisationUnit(OrganisationUnitDomainWrapper wrapper,
+
+                                       SearchInvolvedPartiesResponseV1 response,
+
+                                       @NonNull Boolean apiFlag) throws Exception {
+
+        String uuid = wrapper.getOpsUUID();
+
+        List<SearchOrganisationUnitResponseV1> organisationUnits = response.getOrganisationUnits();
+
+        for (SearchOrganisationUnitResponseV1 ou : organisationUnits) {
+
+            // 1 — Update Name
+
+            updateNameIfNeeded(uuid, wrapper, ou.getOrganisationUnitNames(), apiFlag);
+
+            // 2 — Update Postal Address (Compare → Soft Close → Create New)
+
+            updatePostalAddressFlow(uuid, wrapper, ou.getPostalAddresses(), apiFlag);
+
+            // 3 — Update Digital Address
+
+            updateDigitalAddressIfNeeded(uuid, wrapper, ou.getDigitalAddresses(), apiFlag);
+
+        }
+
+    }
+
+    private void updateNameIfNeeded(String uuid,
+
+                                    OrganisationUnitDomainWrapper wrapper,
+
+                                    List<SearchOrganisationUnitNameResponseV1> names,
+
+                                    boolean apiFlag) {
+
+        for (SearchOrganisationUnitNameResponseV1 name : names) {
+
+            if (!Objects.equals(wrapper.getOrganisationUnitName(), name.getOrganisationUnitName())) {
+
+                log.info("Name changed for uuid:{} old:{} new:{}", uuid, name.getOrganisationUnitName(), wrapper.getOrganisationUnitName());
+
+                if (apiFlag) {
+
+                    onePamRepository.updateOrganisationUnitName(
+
+                            PayloadFactory.buildUpdateNamePayload(wrapper, wrapper.getOrganisationUnitName()),
+
+                            uuid,
+
+                            "DD"
+
+                    );
+
+                }
+
+            }
+
+        }
+
+    }
+
+    private void updatePostalAddressFlow(String uuid,
+
+                                         OrganisationUnitDomainWrapper incoming,
+
+                                         List<SearchOrganisationUnitAddressResponseV1> existingAddresses,
+
+                                         boolean apiFlag) {
+
+        for (SearchOrganisationUnitAddressResponseV1 existing : existingAddresses) {
+
+            if (!isPostalAddressChanged(existing, incoming)) {
+
+                log.info("Postal address unchanged for uuid: {}", uuid);
+
+                continue;
+
+            }
+
+            log.info("Postal address changed for uuid: {}. Soft closing …", uuid);
+
+            if (apiFlag) {
+
+                // 1) SOFT CLOSE (synchronous)
+
+                softCloseService.softClose(uuid);
+
+                log.info("Soft close success for uuid: {}. Creating new postal address…", uuid);
+
+                // 2) CREATE NEW POSTAL ADDRESS (synchronous)
+
+                addressService.createPostalAddress(uuid, incoming.getOrganisationNumber());
+
+                log.info("New postal address created successfully for uuid: {}", uuid);
+
+            } else {
+
+                log.info("apiFlag false — skipping actual postal API calls for uuid: {}", uuid);
+
+            }
+
+        }
+
+    }
+
+    // Compare ALL fields in ONE method
+
+    private boolean isPostalAddressChanged(SearchOrganisationUnitAddressResponseV1 existing,
+
+                                           OrganisationUnitDomainWrapper incoming) {
+
+        if (!Objects.equals(existing.getStreetName(), incoming.getPostalAddressStreetNm())) return true;
+
+        if (!Objects.equals(existing.getHouseNumber(), incoming.getPostalAddressHouseNum())) return true;
+
+        if (!Objects.equals(existing.getHouseNumberAddition(), incoming.getPostalAddressHouseAdd())) return true;
+
+        if (!Objects.equals(existing.getPostalCode(), incoming.getPostalAddressPostalCd())) return true;
+
+        if (!Objects.equals(existing.getCityName(), incoming.getPostalAddressCityName())) return true;
+
+        if (!Objects.equals(existing.getCountryCode(), incoming.getPostalAddressCntryCd())) return true;
+
+        return false;
+
+    }
+
+    private void updateDigitalAddressIfNeeded(String uuid,
+
+                                              OrganisationUnitDomainWrapper wrapper,
+
+                                              List<SearchOrganisationUnitDigitalAddressesV1> digitalAddresses,
+
+                                              boolean apiFlag) {
+
+        for (SearchOrganisationUnitDigitalAddressesV1 digital : digitalAddresses) {
+
+            if (!Objects.equals(wrapper.getDigitalAddrEmail(), digital.getFullDigitalAddress())) {
+
+                log.info("Digital address changed for uuid:{} old:{} new:{}", uuid, digital.getFullDigitalAddress(), wrapper.getDigitalAddrEmail());
+
+                if (apiFlag) {
+
+                    onePamRepository.updateDigitalAddress(
+
+                            PayloadFactory.buildUpdateDigitalPayload(wrapper),
+
+                            uuid,
+
+                            "DD"
+
+                    );
+
+                }
+
+            }
+
+        }
+
+    }
+
+}
+package com.ing.datadist.domain;
+
+import lombok.Data;
+
+@Data
+public class OrganisationUnitDomainWrapper {
+    private String opsUUID;
+    private String orgUUID;
+    private String orgExternalIdentifierVal;
+    private String opsExternalIdentifierVal;
+    private String organisationUnitName;
+    private String postalAddressStreetNm;
+    private String postalAddressHouseNum;
+    private String postalAddressHouseAdd;
+    private String postalAddressPostalCd;
+    private String postalAddressCityName;
+    private String postalAddressCntryCd;
+    private String opsExtIdDateOfIssue;
+    private String opsExtIdExpiryDate;
+    private String digitalAddrFullTel;
+    private String digitalAddrFullTefgn;
+    private String digitalAddrEmail;
+    private String recordActionType;
+}
+package com.ing.datadist.domain;
+
+import lombok.Data;
+
+@Data
+public class OrganisationDomainWrapper {
+    private String orgUUID;
+    private String orgExternalIdentifierVal;
+    private String opsExternalIdentifierVal;
+    private String organisationUnitName;
+    private String postalAddressStreetNm;
+    private String postalAddressHouseNum;
+    private String postalAddressHouseAdd;
+    private String postalAddressPostalCd;
+    private String postalAddressCityName;
+    private String postalAddressCntryCd;
+    private String opsExtIdDateOfIssue;
+    private String opsExtIdExpiryDate;
+    private String digitalAddrFullTel;
+    private String digitalAddrFullTefgn;
+    private String digitalAddrEmail;
+    private String recordActionType;
+}
+
+[INFO] /C:/Users/UU47VT/cud-II/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/configreader/CofaceOpsConfigReader.java: Recompile with -Xlint:deprecation for details.
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR :
+[INFO] -------------------------------------------------------------
+[ERROR] /C:/Users/UU47VT/cud-II/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/UpdateOrganisationUnitService.java:[141,66] cannot find symbol
+  symbol:   method getOrganisationNumber()
+  location: variable incoming of type com.ing.datadist.domain.OrganisationUnitDomainWrapper
+[INFO] 1 error
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for DataDistributorAPIService 1.0.0:
+[INFO]
+[INFO] DataDistributorAPIService .......................... SUCCESS [ 10.987 s]
+[INFO] DataDistributorAPI-conf ............................ SUCCESS [  1.110 s]
+[INFO] DataDistribution ................................... FAILURE [ 20.917 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  33.695 s
+[INFO] Finished at: 2025-11-20T18:21:20+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project DataDistribution: Compilation failure
+[ERROR] /C:/Users/UU47VT/cud-II/P33558-DataDistributorAPI/DataDistribution/src/main/java/com/ing/datadist/api/service/UpdateOrganisationUnitService.java:[141,66] cannot find symbol
+[ERROR]   symbol:   method getOrganisationNumber()
+[ERROR]   location: variable incoming of type com.ing.datadist.domain.OrganisationUnitDomainWrapper
+[ERROR]
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+[ERROR]
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn <args> -rf :DataDistribution
+PS C:\Users\UU47VT\cud-II\P33558-DataDistributorAPI> 
