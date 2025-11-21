@@ -1,0 +1,101 @@
+Update Digital Address Action: PATCH /digital-addresses/{uuid} Purpose: Updates an existing digital address. Flow: Fetch existing digital addresses. Compare incoming data with existing. Send PATCH request for update. Receive API response. Log and record successful update. Create New Digital Address Action: POST /digital-addresses Purpose: Creates a new digital address if none exists. Flow: Send POST request. Receive API response. Log and record successful creation. we hv already implemented some part of this now implement remaining package com.ing.datadist.api.service; import com.ing.datadist.api.model.*; import com.ing.datadist.domain.OrganisationUnitDomainWrapper; import com.ing.datadist.api.payload.PayloadFactory; import lombok.extern.slf4j.Slf4j; import org.springframework.lang.NonNull; import org.springframework.stereotype.Service; import java.time.LocalDate; import java.time.format.DateTimeFormatter; import java.util.List; @Service @Slf4j public class UpdateOrganisationUnitService { private final OnePamRepository onePamRepository; private final AddressService addressService; private final SoftClosePostalAddressService softCloseService; public static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy"); public UpdateOrganisationUnitService(OnePamRepository onePamRepository, AddressService addressService, SoftClosePostalAddressService softCloseService) { this.onePamRepository = onePamRepository; this.addressService = addressService; this.softCloseService = softCloseService; } public void updateOrganisationUnit(OrganisationUnitDomainWrapper wrapper, SearchInvolvedPartiesResponseV1 response, @NonNull Boolean apiFlag) throws Exception { String uuid = wrapper.getOpsUUID(); List<SearchOrganisationUnitResponseV1> organisationUnits = response.getOrganisationUnits(); for (SearchOrganisationUnitResponseV1 organisationUnit : organisationUnits) { List<SearchOrganisationUnitNameResponseV1> organisationUnitNames = organisationUnit.getOrganisationUnitNames(); List<SearchOrganisationUnitAddressResponseV1> postalAddresses = organisationUnit.getPostalAddresses(); List<SearchOrganisationUnitDigitalAddressesV1> digitalAddresses = organisationUnit.getDigitalAddresses(); for (SearchOrganisationUnitNameResponseV1 name : organisationUnitNames) { if (wrapper.getOrganisationUnitName() != null && !wrapper.getOrganisationUnitName().isEmpty() && name.getOrganisationUnitName() != null && !wrapper.getOrganisationUnitName().equals(name.getOrganisationUnitName())) { log.info("OrganisationUnit name changed for uuid:{} new:{} old:{}", uuid, wrapper.getOrganisationUnitName(), name.getOrganisationUnitName()); if (apiFlag) { onePamRepository.updateOrganisationUnitName( PayloadFactory.buildUpdateNamePayload(wrapper), uuid, "OU_NM"); } else { // TODO: Handle via OIL logic } } } for (SearchOrganisationUnitAddressResponseV1 address : postalAddresses) { if (isPostalAddressChanged(wrapper, address)) { log.info("Postal address changed for uuid:{} new:[Street:{}, HouseNum:{}, Add:{}, PostalCode:{}, City:{}, Country:{}] old:[Street:{}, HouseNum:{}, Add:{}, PostalCode:{}, City:{}, Country:{}]", uuid, wrapper.getPostalAddressStreetNm(), wrapper.getPostalAddressHouseNum(), wrapper.getPostalAddressHouseAdd(), wrapper.getPostalAddressPostalCd(), wrapper.getPostalAddressCityName(), wrapper.getPostalAddressCntryCd(), address.getStreetName(), address.getHouseNumber(), address.getHouseNumberAddition(), address.getPostalCode(), address.getCityName(), address.getCountryCode()); if (apiFlag) { softCloseService.softClose(uuid); log.info("Soft close success for uuid: {}", uuid); addressService.createPostalAddress(uuid, wrapper.getOpsExternalIdentifierVal()); log.info("New postal address created successfully for uuid: {}", uuid); } else { // TODO: Handle via OIL logic } break; // Stop after first detected change } } for (SearchOrganisationUnitDigitalAddressesV1 digitalAddress : digitalAddresses) { if (wrapper.getDigitalAddrEmail() != null && !wrapper.getDigitalAddrEmail().isEmpty() && digitalAddress.getFullDigitalAddress() != null && !wrapper.getDigitalAddrEmail().equals(digitalAddress.getFullDigitalAddress())) { log.info("Digital address changed for uuid:{} new:{} old:{}", uuid, wrapper.getDigitalAddrEmail(), digitalAddress.getFullDigitalAddress()); if (apiFlag) { onePamRepository.updateDigitalAddress( PayloadFactory.buildUpdateDigitalPayload(wrapper), uuid, "PSN_EMAIL" ); } else { // TODO: Handle via OIL logic } } } } if (compareExitDate(wrapper.getOpsExtIdExpiryDate())) { // TODO: Implement delete API call here } } private boolean isPostalAddressChanged(OrganisationUnitDomainWrapper wrapper, SearchOrganisationUnitAddressResponseV1 address) { return (wrapper.getPostalAddressStreetNm() != null && !wrapper.getPostalAddressStreetNm().isEmpty() && address.getStreetName() != null && !wrapper.getPostalAddressStreetNm().equals(address.getStreetName())) || (wrapper.getPostalAddressHouseNum() != null && !wrapper.getPostalAddressHouseNum().isEmpty() && address.getHouseNumber() != null && !wrapper.getPostalAddressHouseNum().equals(address.getHouseNumber())) || (wrapper.getPostalAddressHouseAdd() != null && !wrapper.getPostalAddressHouseAdd().isEmpty() && address.getHouseNumberAddition() != null && !wrapper.getPostalAddressHouseAdd().equals(address.getHouseNumberAddition())) || (wrapper.getPostalAddressPostalCd() != null && !wrapper.getPostalAddressPostalCd().isEmpty() && address.getPostalCode() != null && !wrapper.getPostalAddressPostalCd().equals(address.getPostalCode())) || (wrapper.getPostalAddressCityName() != null && !wrapper.getPostalAddressCityName().isEmpty() && address.getCityName() != null && !wrapper.getPostalAddressCityName().equals(address.getCityName())) || (wrapper.getPostalAddressCntryCd() != null && !wrapper.getPostalAddressCntryCd().isEmpty() && address.getCountryCode() != null && !wrapper.getPostalAddressCntryCd().equals(address.getCountryCode())); } private boolean compareExitDate(String exitDate) { try { log.info("compareExitDate date:{}", exitDate); if (exitDate == null || exitDate.isEmpty()) { return false; } else { LocalDate exit = LocalDate.parse(exitDate, formatter); LocalDate today = LocalDate.now(); return !exit.isAfter(today); } } catch (Exception e) { log.error("compareExitDate error", e); throw e; } } }
+tell steps/requirements/prerequisites to complete this fully asapTo fully implement the **Digital Address update logic** (both PATCH and POST flows) as shown in the diagram and integrate it into your existing service, here are the **steps, requirements, and prerequisites**:
+
+***
+
+### ✅ **1. Understand Current Implementation**
+
+*   You already have:
+    *   **Update Organisation Unit Name** logic.
+    *   **Update Postal Address** logic.
+    *   **Update Digital Address** logic for PATCH (when email differs).
+*   Missing:
+    *   **Fetch existing digital addresses** before deciding update vs create.
+    *   **Create new digital address (POST)** if none exists.
+    *   **Proper branching logic** for update vs create.
+
+***
+
+### ✅ **2. Requirements**
+
+*   **API Endpoints**:
+    *   `PATCH /digital-addresses/{uuid}` → Update existing digital address.
+    *   `POST /digital-addresses` → Create new digital address.
+*   **Repository Methods**:
+    *   `onePamRepository.updateDigitalAddress(payload, uuid, type)` → Already exists.
+    *   **Add new method**: `onePamRepository.createDigitalAddress(payload)` for POST.
+*   **Payload Factory**:
+    *   Ensure `PayloadFactory.buildUpdateDigitalPayload(wrapper)` exists for PATCH.
+    *   **Add new method**: `PayloadFactory.buildCreateDigitalPayload(wrapper)` for POST.
+
+***
+
+### ✅ **3. Prerequisites**
+
+*   Confirm **API contracts** for POST:
+    *   Required fields: `digitalAddressType`, `fullDigitalAddress`, `effectiveDate`, etc.
+*   Ensure **wrapper** contains all necessary data for creating a new digital address.
+*   Validate **response handling** for success/failure logging.
+
+***
+
+### ✅ **4. Implementation Steps**
+
+#### **Step A: Fetch Existing Digital Addresses**
+
+*   Already available in `digitalAddresses` list from `SearchInvolvedPartiesResponseV1`.
+
+#### **Step B: Compare Incoming vs Existing**
+
+*   If `digitalAddresses` is empty → **Create new digital address**.
+*   Else:
+    *   If `wrapper.getDigitalAddrEmail()` differs from `digitalAddress.getFullDigitalAddress()` → **Update existing**.
+
+#### **Step C: Implement Create Logic**
+
+```java
+if (digitalAddresses == null || digitalAddresses.isEmpty()) {
+    log.info("No existing digital address found for uuid: {}. Creating new digital address...", uuid);
+    if (apiFlag) {
+        onePamRepository.createDigitalAddress(
+            PayloadFactory.buildCreateDigitalPayload(wrapper)
+        );
+        log.info("New digital address created successfully for uuid: {}", uuid);
+    } else {
+        // TODO: Handle via OIL logic
+    }
+}
+```
+
+#### **Step D: Update Logic (Already Exists)**
+
+*   Keep your current PATCH logic for when email differs.
+
+***
+
+### ✅ **5. Logging & Auditing**
+
+*   Log both **update** and **create** actions clearly.
+*   Record success/failure responses from API.
+
+***
+
+### ✅ **6. Testing**
+
+*   **Unit Tests**:
+    *   Case 1: Existing digital address → Update.
+    *   Case 2: No digital address → Create.
+*   **Integration Tests**:
+    *   Validate API calls and payload correctness.
+
+***
+
+### ✅ **7. Final Flow for Digital Address**
+
+*   **Fetch existing addresses**.
+*   If none → **POST create**.
+*   Else if differs → **PATCH update**.
+*   Else → No action.
+
+***
+
